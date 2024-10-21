@@ -10,7 +10,7 @@ class Preprocessor:
     def __init__(self, file_path):
         self.file_path = file_path
         self.state = self.set_state()
-        self.vectors = self.process()
+        # self.vectors = self.process()
 
     def set_state(self):
         """Set the current processing state (file type)."""
@@ -35,12 +35,13 @@ class Preprocessor:
     
     def upload_original_file(self):
         """Upload the original file to cloud database."""
+        s3_handler = S3Handler()
+        s3_handler.upload_file(self.file_path)
         return 0
     
     def upload_vectorized_file(self):
         """Upload the processed file to cloud database."""
-        s3_handler = S3Handler()
-        s3_handler.upload_file('path/to/local/file.txt')
+        
         return 0
 
         
@@ -49,4 +50,4 @@ if __name__ == "__main__":
     file_path = r"E:\HiData\Microservice_RAG\services\indexing\test.txt"
     # Initialize Preprocessor
     preprocessor = Preprocessor(file_path)
-    print(preprocessor.state)
+    preprocessor.upload_original_file()

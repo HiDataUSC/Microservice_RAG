@@ -1,7 +1,9 @@
+from services.indexing.env import AWS_S3_BUCKET
+from services.common.config import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+
 import boto3
 from botocore.exceptions import NoCredentialsError, ClientError
 import logging
-from services.indexing.env import AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_BUCKET
 
 
 class S3Handler:
@@ -12,31 +14,17 @@ class S3Handler:
             aws_secret_access_key=AWS_SECRET_ACCESS_KEY
         )
 
-    def upload_file(self, file_name, bucket=None, object_name=None):
-        """Upload a file to an S3 bucket.
-        
-        :param file_name: File to upload
-        :param bucket: Bucket to upload to (default is from environment variable)
-        :param object_name: S3 object name. If not specified then file_name is used
-        :return: True if file was uploaded, else False
-        """
-        if bucket is None:
-            bucket = AWS_S3_BUCKET
-
+    def upload_file(self, file_name, object_name=None):
+        """Upload a file to an S3 bucket."""
         if object_name is None:
             object_name = file_name
 
         try:
-            print(f"Uploading {file_name} to bucket {bucket}")
-            self.s3.upload_file(file_name, bucket, object_name)
-            print(f"Upload successful: {object_name}")
-            return True
-        except NoCredentialsError:
-            print("Credentials not available")
-            return False
+            response = self.s3.upload_file(file_name, AWS_S3_BUCKET, object_name)
         except ClientError as e:
             logging.error(e)
             return False
+        return True
 
     def download_file(self, object_name, file_name, bucket=None):
         """Download a file from an S3 bucket.
