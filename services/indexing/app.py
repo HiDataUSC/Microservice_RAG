@@ -1,16 +1,15 @@
 from services.common import config # Load common file
 from services.indexing.file_processing_states import detect_file_type, FileProcessingState
 from services.indexing.AWS_handler import S3Handler
-
-import boto3
-from pathlib import Path
-import mimetypes
+from services.indexing.helper import FileUUIDGenerator, LocalFileByteStore
 
 class Preprocessor:
     def __init__(self, file_path):
         self.file_path = file_path
+        self.local_folder = r"E:\HiData\Microservice_RAG\services\indexing\local_folder"
         self.state = self.set_state()
-        self.vectors = self.process()
+        self.doc_id = FileUUIDGenerator(self.local_folder).generate_unique_uuid()
+        
 
     def set_state(self):
         """Set the current processing state (file type)."""
@@ -28,25 +27,30 @@ class Preprocessor:
         preprocessed_content = self.state.preprocess(content)
 
         # Step 3: Vectorize the preprocessed content
-        vectors = self.state.vectorize(preprocessed_content)
-        print(len(vectors))
-        print(vectors)
-        return vectors
-    
-    def upload_original_file(self):
-        """Upload the original file to cloud database."""
-        return 0
-    
-    def upload_vectorized_file(self):
-        """Upload the processed file to cloud database."""
-        s3_handler = S3Handler()
-        s3_handler.upload_file('path/to/local/file.txt')
-        return 0
+        self.state.vectorize(self.local_folder)
 
+        # Step 4: Store the vectorized content locally
+        self.state.store_local(self.doc_id, preprocessed_content)
+    
+    def retrieve(self, query):
+        return self.state.retrieve(query, self.local_folder)
+    
+    def store_cloud(self):
+        """Upload the original file to cloud database."""
+        s3_handler = S3Handler()
+        s3_handler.upload_file(self.doc_id)
+        return 0
         
 if __name__ == "__main__":
     # need to be absolute path
     file_path = r"E:\HiData\Microservice_RAG\services\indexing\test.txt"
     # Initialize Preprocessor
     preprocessor = Preprocessor(file_path)
-    print(preprocessor.state)
+
+    # store file with file_path
+    # preprocessor.process()
+
+    # search for file
+    query = "Memory in agents"
+    sub_doc = preprocessor.retrieve(query)
+    print(sub_doc)
