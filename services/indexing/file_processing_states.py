@@ -1,14 +1,15 @@
+from services.common.AWS_handler import S3Handler
+
 import os
 import json
 import uuid
 from uuid import uuid4
-
 from abc import ABC, abstractmethod
 from pathlib import Path
 import mimetypes
 from langchain import hub
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.documents import Document
@@ -41,20 +42,27 @@ class FileProcessingState(ABC):
         pass
     
     @abstractmethod
+    def store_cloud(self):
+        """Store data to the cloud"""
+        pass
+
+    @abstractmethod
     def retrieve(self, query, local_folder):
         """Retrieve using similarity search."""
         pass
-
 
 # State for processing text files
 class TextFileState(FileProcessingState):
     def __init__(self):
         self.embeddings = OpenAIEmbeddings()
+        self.file_path = None
         self.vectorstore = None
         self.local_folder = None
+        self.doc_id = None
 
     def read(self, file_path):
         """Read the text file."""
+        self.file_path = file_path
         with open(file_path, 'r', encoding='utf-8') as file:
             return file.read()
 
@@ -81,6 +89,7 @@ class TextFileState(FileProcessingState):
         return self.vectorstore
     
     def store_local(self, doc_id, content):
+        self.doc_id = doc_id
         """Store the document vectors locally."""
         summary_docs = [
             Document(page_content=content, metadata={"doc_id": doc_id})
@@ -102,6 +111,13 @@ class TextFileState(FileProcessingState):
                 json.dump(doc_ids, f, indent=4)
         except Exception as e:
             print(f"Error occurred in file_processing_stats.store_local: {str(e)}")
+
+    def store_cloud(self):
+        """Upload the original file to cloud database."""
+        s3_handler = S3Handler()
+        ext = Path(self.file_path).suffix.lower()
+        object_name = f"{self.doc_id}{ext}"
+        s3_handler.upload_file(self.file_path, object_name=object_name)
 
     def retrieve(self, query, local_folder):
         """Retrieve the most similar document."""

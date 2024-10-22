@@ -7,7 +7,6 @@ class FileUUIDGenerator:
         self.folder_path = folder_path
 
     def generate_unique_uuid(self):
-        """生成唯一的 UUID，确保不与文件夹中的文件名冲突。"""
         existing_uuids = self.get_existing_uuids()
         
         # 生成一个新的 UUID
@@ -20,7 +19,6 @@ class FileUUIDGenerator:
         return new_uuid
 
     def get_existing_uuids(self):
-        """获取文件夹中已有的 UUID 文件名。"""
         existing_uuids = set()
         
         # 遍历文件夹下所有文件
