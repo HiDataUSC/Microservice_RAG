@@ -1,6 +1,6 @@
 import os
 import json
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_openai import OpenAIEmbeddings
 
 def check_stored_docs(local_output):
