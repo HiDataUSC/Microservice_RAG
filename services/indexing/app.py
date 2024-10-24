@@ -3,7 +3,7 @@ from services.indexing.file_processing_states import detect_file_type
 from services.common.helper import FileUUIDGenerator
 
 class Preprocessor:
-    def __init__(self, file_path, local_folder):
+    def __init__(self, file_path, local_folder = LOCAL_FOLDER):
         self.file_path = file_path
         self.local_folder = local_folder
         self.state = self.set_state()
@@ -34,9 +34,9 @@ class Preprocessor:
         # Step 5: Upload original file with unique ID to cloud storage
         self.state.store_cloud()
         
-if __name__ == "__main__":
-    # need to be absolute path
-    file_path = r"E:\HiData\Microservice_RAG\tests\test.txt"
-    # Initialize Preprocessor
-    preprocessor = Preprocessor(file_path, LOCAL_FOLDER)
-    preprocessor.process()
+# if __name__ == "__main__":
+#     # need to be absolute path
+#     file_path = r"your\file\path"
+#     # Initialize Preprocessor
+#     preprocessor = Preprocessor(file_path, LOCAL_FOLDER)
+#     preprocessor.process()
