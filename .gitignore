@@ -162,5 +162,5 @@ cython_debug/
 #.idea/
 
 # local folder
-services/local_folder/
+local_folder/
 

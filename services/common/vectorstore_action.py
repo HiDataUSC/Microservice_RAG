@@ -58,11 +58,10 @@ def delete_document_by_id(doc_id_to_delete):
         print(f"Error occurred while deleting document: {str(e)}")
 
 
-if __name__ == "__main__":
-    doc_id_to_delete = "cd9e2b68-3fb2-4db3-82a0-59deb936d318"
-    delete_document_by_id(doc_id_to_delete)
-
-
 # if __name__ == "__main__":
-#     local_folder = r"E:\HiData\Microservice_RAG\services\indexing\local_folder"
-#     check_stored_docs()
+#     doc_id_to_delete = "cd9e2b68-3fb2-4db3-82a0-59deb936d318"
+#     delete_document_by_id(doc_id_to_delete)
+
+
+if __name__ == "__main__":
+    check_stored_docs()
