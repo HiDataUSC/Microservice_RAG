@@ -1,8 +1,10 @@
 import sys
 import os
+import shutil
 
 from services.indexing.app import Preprocessor
 from services.retrieval.app import Retriever
+from services.generation.app import Generation
 
 
 def print_menu():
@@ -31,18 +33,34 @@ def retrieve_document_action():
     """Handle document retrieval based on user's query."""
     query = input("Please enter your query to retrieve the relevant document: ").strip()
     retriever = Retriever()
+    generator = Generation()
     if query:
-        print(f"Retrieving document(s) based on query: {query}")
         try:
+            conv_id = retriever.store_query_in_redis(query)
             for doc in retriever.retrieve(query):
                 doc_id = doc.metadata.get('doc_id')
             dst_folder = r"E:\HiData\Microservice_RAG\test_output"
             retriever.full_document(doc_id, dst_folder)
-            print(f"file save to: {dst_folder}")
+            answer = generator.generate_answer(conv_id, dst_folder).content
+            print(f"\n\n\n{answer}")
+
+            delete_files_in_folder(dst_folder)
         except Exception as e:
             print(f"Error retrieving document: {e}")
     else:
         print("Query cannot be empty.")
+
+def delete_files_in_folder(folder_path):
+    """Delete all files in the specified folder."""
+    try:
+        for filename in os.listdir(folder_path):
+            file_path = os.path.join(folder_path, filename)
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)  # Remove file or link
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+    except Exception as e:
+        print(f"Error deleting files in {folder_path}: {e}")
 
 
 def main():

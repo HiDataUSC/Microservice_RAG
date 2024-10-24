@@ -19,7 +19,8 @@ class Retriever:
         :param query: The query string to store in Redis.
         """
         # Increment a key to act as the query ID
-        query_id = self.redis_client.incr('query_id')
+        # query_id = self.redis_client.incr('query_id')
+        query_id = -1
         # Store the query with the incremented query_id as the key
         self.redis_client.set(f'query:{query_id}', query)
         return query_id
@@ -31,12 +32,6 @@ class Retriever:
         :param query: The query string to search for similar documents in the vector store.
         :return: The top similar document(s) based on the query.
         """
-        try:
-            query_id = self.store_query_in_redis(query)
-            print(f"Query stored in Redis with ID: {query_id}")
-        except Exception:
-            pass
-
         vectorstore = Chroma(
             collection_name="summaries", 
             embedding_function=OpenAIEmbeddings(),
@@ -62,6 +57,7 @@ class Retriever:
 
 #     # store file with file_path
 #     query = "Memory in agents"
+#     conv_id = retriever.store_query_in_redis(query)
 #     for doc in retriever.retrieve(query):
 #         doc_id = doc.metadata.get('doc_id')
 #     dst_folder = r"E:\HiData\Microservice_RAG\tests"
