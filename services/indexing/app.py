@@ -1,13 +1,13 @@
 from services.common.config import LOCAL_FOLDER
 from services.indexing.file_processing_states import detect_file_type
-from services.indexing.helper import FileUUIDGenerator
+from services.common.helper import FileUUIDGenerator
 
 class Preprocessor:
     def __init__(self, file_path, local_folder):
         self.file_path = file_path
         self.local_folder = local_folder
         self.state = self.set_state()
-        self.doc_id = FileUUIDGenerator(self.local_folder).generate_unique_uuid()
+        self.doc_id = FileUUIDGenerator().generate_unique_uuid()
         
 
     def set_state(self):
