@@ -1,6 +1,7 @@
-from services.common.config import LOCAL_FOLDER # Load common file
+from services.common.config import LOCAL_FOLDER, REDIS_HOST, REDIS_PORT # Load common file
 from services.common.AWS_handler import S3Handler
 
+import redis
 from langchain_chroma import Chroma
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
@@ -9,6 +10,19 @@ class Retriever:
     def __init__(self, local_folder):
         """Initialize the Retrieve class with a local folder for persistence of vector store data."""
         self.local_folder = local_folder
+        self.redis_client = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
+
+    def store_query_in_redis(self, query):
+        """
+        Store the query in Redis with an auto-incrementing key.
+        
+        :param query: The query string to store in Redis.
+        """
+        # Increment a key to act as the query ID
+        query_id = self.redis_client.incr('query_id')
+        # Store the query with the incremented query_id as the key
+        self.redis_client.set(f'query:{query_id}', query)
+        return query_id
 
     def retrieve(self, query):
         """
@@ -17,6 +31,9 @@ class Retriever:
         :param query: The query string to search for similar documents in the vector store.
         :return: The top similar document(s) based on the query.
         """
+        query_id = self.store_query_in_redis(query)
+        print(f"Query stored in Redis with ID: {query_id}")
+
         vectorstore = Chroma(
             collection_name="summaries", 
             embedding_function=OpenAIEmbeddings(),
