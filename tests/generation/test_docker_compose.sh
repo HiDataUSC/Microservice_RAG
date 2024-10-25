@@ -21,9 +21,9 @@ echo "Redis container is running successfully."
 echo "Running Redis client test..."
 docker-compose -f $COMPOSE_FILE_PATH exec app python3 tests/generation/test_redis_client.py  # Execute the test script
 
-# Step 4: Stop Docker Compose services
+# Step 4: Stop Docker Compose services (containers will stop, but volumes are preserved)
 echo "Stopping Docker Compose services..."
-docker-compose -f $COMPOSE_FILE_PATH down
+docker-compose -f $COMPOSE_FILE_PATH down -v
 
 # Step 5: Verify if the containers have been removed
 echo "Verifying containers have been removed..."
