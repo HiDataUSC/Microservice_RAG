@@ -19,7 +19,8 @@ def check_stored_docs():
             print("No documents stored in the vector database.")
         else:
             for doc in all_docs:
-                print(f"Document ID: {doc.metadata.get('doc_id')}")
+                print(f"Document ID: {doc.metadata.get('doc_id')},  Document Type: {doc.metadata.get('doc_type')}")
+                # Uncomment the line below to preview the document content
                 # print(f"Document Content (Preview): {doc.page_content[:100]}...")
     except Exception as e:
         print(f"Error occurred while retrieving documents: {str(e)}")
@@ -45,12 +46,12 @@ def delete_document_by_id(doc_id_to_delete):
             with open(doc_id_file_path, 'r', encoding='utf-8') as f:
                 doc_ids = json.load(f)
 
-            # remove deleted doc_id_to_delete from doc_id.json
+            # Remove deleted doc_id from doc_id.json
             if doc_id_to_delete in doc_ids:
                 doc_ids.remove(doc_id_to_delete)
                 print(f"Removed doc_id {doc_id_to_delete} from doc_id.json")
 
-            # Keep updated doc_id list
+            # Update doc_id list
             with open(doc_id_file_path, 'w', encoding='utf-8') as f:
                 json.dump(doc_ids, f, indent=4)
     
@@ -58,10 +59,21 @@ def delete_document_by_id(doc_id_to_delete):
         print(f"Error occurred while deleting document: {str(e)}")
 
 
-# if __name__ == "__main__":
-#     doc_id_to_delete = "cd9e2b68-3fb2-4db3-82a0-59deb936d318"
-#     delete_document_by_id(doc_id_to_delete)
-
-
 if __name__ == "__main__":
-    check_stored_docs()
+    while True:
+        print("\nPlease choose an option:")
+        print("1. Check stored documents")
+        print("2. Delete document by ID")
+        print("3. Exit")
+        choice = input("Enter your choice (1/2/3): ").strip()
+        
+        if choice == '1':
+            check_stored_docs()
+        elif choice == '2':
+            doc_id_to_delete = input("Enter the doc_id of the document you want to delete: ").strip()
+            delete_document_by_id(doc_id_to_delete)
+        elif choice == '3':
+            print("Exiting the program.")
+            break
+        else:
+            print("Invalid choice. Please enter 1, 2, or 3.")

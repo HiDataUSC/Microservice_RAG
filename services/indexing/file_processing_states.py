@@ -5,6 +5,7 @@ import json
 import uuid
 from uuid import uuid4
 from abc import ABC, abstractmethod
+from docx import Document as DocxReader
 from pathlib import Path
 import mimetypes
 from langchain import hub
@@ -92,7 +93,7 @@ class TextFileState(FileProcessingState):
         self.doc_id = doc_id
         """Store the document vectors locally."""
         summary_docs = [
-            Document(page_content=content, metadata={"doc_id": doc_id})
+            Document(page_content=content, metadata={"doc_id": doc_id, "doc_type": "txt"})
         ]
         
         # Add the documents to the vectorstore with metadata containing doc_id
@@ -155,25 +156,81 @@ class PDFFileState(FileProcessingState):
 
 # State for processing Word files (Placeholder, actual implementation needed)
 class WordFileState(FileProcessingState):
-    def read(self, file_path):
-        """Read the file."""
-        pass
-    
-    def preprocess(self, content):
-        """Preprocess the content."""
-        pass
+    def __init__(self):
+        self.embeddings = OpenAIEmbeddings()
+        self.file_path = None
+        self.vectorstore = None
+        self.local_folder = None
+        self.doc_id = None
 
-    def vectorize(self, content, local_folder):
-        """Vectorize the preprocessed content."""
-        pass
-    
-    def store_local(self, vectorstore, local_folder):
-        """Store the vectorized data locally."""
-        pass
-    
+    def read(self, file_path):
+        """Read the Word file."""
+        self.file_path = file_path
+        # Use python-docx to read Word file
+        doc = DocxReader(file_path)
+        full_text = []
+        for para in doc.paragraphs:
+            full_text.append(para.text)
+        return '\n'.join(full_text)
+
+    def preprocess(self, content):
+        """Preprocess by summarizing the text using an LLM."""
+        doc = Document(page_content=content)
+        chain = (
+            {"doc": lambda x: x.page_content}
+            | ChatPromptTemplate.from_template("Summarize the following document:\n\n{doc}")
+            | ChatOpenAI(model="gpt-3.5-turbo", max_retries=0)
+            | StrOutputParser()
+        )
+        summary = chain.invoke(doc)
+        return summary
+
+    def vectorize(self, local_folder):
+        """Set up the vector store for embeddings."""
+        self.local_folder = local_folder
+        self.vectorstore = Chroma(
+            collection_name="summaries",
+            embedding_function=self.embeddings,
+            persist_directory=self.local_folder
+        )
+        return self.vectorstore
+
+    def store_local(self, doc_id, content):
+        """Store the document vectors locally with metadata."""
+        self.doc_id = doc_id
+        summary_docs = [
+            Document(page_content=content, metadata={"doc_id": doc_id, "doc_type": "docx"})
+        ]
+        try:
+            self.vectorstore.add_documents(summary_docs, ids=[doc_id])
+            doc_id_file_path = os.path.join(self.local_folder, "doc_id.json")
+            if not os.path.exists(doc_id_file_path):
+                with open(doc_id_file_path, 'w', encoding='utf-8') as f:
+                    json.dump([], f)
+            with open(doc_id_file_path, 'r', encoding='utf-8') as f:
+                doc_ids = json.load(f)
+            if doc_id not in doc_ids:
+                doc_ids.append(doc_id)
+            with open(doc_id_file_path, 'w', encoding='utf-8') as f:
+                json.dump(doc_ids, f, indent=4)
+        except Exception as e:
+            print(f"Error occurred in WordFileState.store_local: {str(e)}")
+
+    def store_cloud(self):
+        """Upload the original Word file to cloud storage."""
+        s3_handler = S3Handler()
+        ext = Path(self.file_path).suffix.lower()
+        object_name = f"{self.doc_id}{ext}"
+        s3_handler.upload_file(self.file_path, object_name=object_name)
+
     def retrieve(self, query, local_folder):
-        """Retrieve using similarity search."""
-        pass
+        """Retrieve the most similar document based on the query."""
+        vectorstore = Chroma(
+            collection_name="summaries",
+            embedding_function=OpenAIEmbeddings(),
+            persist_directory=local_folder
+        )
+        return vectorstore.similarity_search(query, k=1)
 
 
 # Utility function to detect file type and return the appropriate state class

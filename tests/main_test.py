@@ -45,7 +45,7 @@ class Main:
 
             doc_id = doc.metadata.get('doc_id')
             retriever.full_document(doc_id, self.dst_folder)
-            answer = generator.generate_answer(conv_id, self.dst_folder).content
+            answer = generator.generate_answer(conv_id, self.dst_folder)
             print(f"\n{answer}")
         except Exception as e:
             print(f"Error retrieving document: {e}")
@@ -53,8 +53,17 @@ class Main:
             self.cleanup()
 
     def cleanup(self):
-        """Delete all files in the destination folder."""
-        shutil.rmtree(self.dst_folder, ignore_errors=True)
+        """Delete all files and folders inside the destination folder without deleting the folder itself."""
+        for filename in os.listdir(self.dst_folder):
+            file_path = os.path.join(self.dst_folder, filename)
+            try:
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.unlink(file_path)  # Remove the file or link
+                elif os.path.isdir(file_path):
+                    shutil.rmtree(file_path)  # Remove the directory
+            except Exception as e:
+                print(f"Failed to delete {file_path}. Reason: {e}")
+
 
 
 def main():
