@@ -167,3 +167,4 @@ local_folder/
 # test case document folder
 test_doc/
 test_output/
+dump.rdb

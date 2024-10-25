@@ -1,29 +1,22 @@
-from services.common.config import LOCAL_FOLDER, REDIS_HOST, REDIS_PORT # Load common file
 from services.common.AWS_handler import S3Handler
-
-import redis
-from langchain_chroma import Chroma
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from services.retrieval.redis_client import RedisHandler
+from services.retrieval.vector_store import VectorStore
 
 class Retriever:
     """Class to handle document retrieval from local vector store and downloading full documents from S3."""
-    def __init__(self, local_folder = LOCAL_FOLDER):
+    def __init__(self):
         """Initialize the Retrieve class with a local folder for persistence of vector store data."""
-        self.local_folder = local_folder
-        self.redis_client = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
+        self.redis_handler = RedisHandler()
+        self.vector_store = VectorStore()
+        self.s3_handler = S3Handler()
 
     def store_query_in_redis(self, query):
         """
-        Store the query in Redis with an auto-incrementing key.
+        Store the query in Redis.
         
         :param query: The query string to store in Redis.
         """
-        # Increment a key to act as the query ID
-        # query_id = self.redis_client.incr('query_id')
-        query_id = -1
-        # Store the query with the incremented query_id as the key
-        self.redis_client.set(f'query:{query_id}', query)
-        return query_id
+        return self.redis_handler.store_query(query)
 
     def retrieve(self, query):
         """
@@ -32,12 +25,7 @@ class Retriever:
         :param query: The query string to search for similar documents in the vector store.
         :return: The top similar document(s) based on the query.
         """
-        vectorstore = Chroma(
-            collection_name="summaries", 
-            embedding_function=OpenAIEmbeddings(),
-            persist_directory=self.local_folder
-        )
-        return vectorstore.similarity_search(query, k=1)
+        return self.vector_store.similarity_search(query, k=1)
     
     def full_document(self, doc_id, dst_folder):
         """
@@ -46,19 +34,4 @@ class Retriever:
         :param doc_id: The unique document identifier used to locate the file in S3.
         :param dst_folder: The destination folder where the document will be downloaded.
         """
-        # Initialize S3 handler and download the file from S3 using the doc_id
-        s3_handler = S3Handler()
-        s3_handler.download_file(doc_id, dst_folder)
-
-    
-# if __name__ == "__main__":
-#     # Initialize Preprocessor
-#     retriever = Retriever(LOCAL_FOLDER)
-
-#     # store file with file_path
-#     query = "Memory in agents"
-#     conv_id = retriever.store_query_in_redis(query)
-#     for doc in retriever.retrieve(query):
-#         doc_id = doc.metadata.get('doc_id')
-#     dst_folder = r"E:\HiData\Microservice_RAG\tests"
-#     retriever.full_document(doc_id, dst_folder)
+        self.s3_handler.download_file(doc_id, dst_folder)

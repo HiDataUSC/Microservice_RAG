@@ -20,53 +20,61 @@ from langchain.storage import InMemoryByteStore
 from langchain.retrievers.multi_vector import MultiVectorRetriever
 
 
-# Abstract Base State Class for file processing
+# Abstract base class defining methods for file processing states
 class FileProcessingState(ABC):
+    # Abstract method to read file content
     @abstractmethod
     def read(self, file_path):
         """Read the file."""
         pass
     
+    # Abstract method for content preprocessing
     @abstractmethod
     def preprocess(self, content):
         """Preprocess the content."""
         pass
 
+    # Abstract method for vectorizing content
     @abstractmethod
     def vectorize(self, content, local_folder):
         """Vectorize the preprocessed content."""
         pass
     
+    # Abstract method for local storage of vectorized data
     @abstractmethod
     def store_local(self, vectorstore, local_folder):
         """Store the vectorized data locally."""
         pass
     
+    # Abstract method for cloud storage of data
     @abstractmethod
     def store_cloud(self):
         """Store data to the cloud"""
         pass
 
+    # Abstract method to retrieve information based on similarity search
     @abstractmethod
     def retrieve(self, query, local_folder):
         """Retrieve using similarity search."""
         pass
 
-# State for processing text files
+# State for processing text (.txt) files
 class TextFileState(FileProcessingState):
     def __init__(self):
-        self.embeddings = OpenAIEmbeddings()
+        self.embeddings = OpenAIEmbeddings()  # Initialize OpenAI embeddings
         self.file_path = None
         self.vectorstore = None
         self.local_folder = None
         self.doc_id = None
 
+    # Read method to read content from a text file
     def read(self, file_path):
         """Read the text file."""
         self.file_path = file_path
         with open(file_path, 'r', encoding='utf-8') as file:
             return file.read()
 
+    # Preprocess content by summarizing it
     def preprocess(self, content):
         doc = Document(page_content=content)
         chain = (
@@ -75,10 +83,10 @@ class TextFileState(FileProcessingState):
             | ChatOpenAI(model="gpt-3.5-turbo", max_retries=0)
             | StrOutputParser()
         )
-        summary = chain.invoke(doc)
-        """Preprocess by splitting the text."""
+        summary = chain.invoke(doc)  # Generate summary using LLM
         return summary
 
+    # Vectorize the text content and set up local folder for persistence
     def vectorize(self, local_folder):
         """Vectorize the text chunks."""
         self.local_folder = local_folder
@@ -89,19 +97,18 @@ class TextFileState(FileProcessingState):
         )
         return self.vectorstore
     
+    # Store vectorized document locally with metadata
     def store_local(self, doc_id, content):
         self.doc_id = doc_id
-        """Store the document vectors locally."""
         summary_docs = [
             Document(page_content=content, metadata={"doc_id": doc_id, "doc_type": "txt"})
         ]
         
-        # Add the documents to the vectorstore with metadata containing doc_id
         try:
-            self.vectorstore.add_documents(summary_docs, ids = [doc_id])
+            self.vectorstore.add_documents(summary_docs, ids=[doc_id])  # Add documents to vector store
+            # Save document IDs locally to a JSON file for tracking
             doc_id_file_path = os.path.join(self.local_folder, "doc_id.json")
             if not os.path.exists(doc_id_file_path):
-                # If the file doesn't exist, create it and initialize it with an empty list
                 with open(doc_id_file_path, 'w', encoding='utf-8') as f:
                     json.dump([], f)
             with open(doc_id_file_path, 'r', encoding='utf-8') as f:
@@ -113,6 +120,7 @@ class TextFileState(FileProcessingState):
         except Exception as e:
             print(f"Error occurred in file_processing_stats.store_local: {str(e)}")
 
+    # Upload the original file to cloud storage
     def store_cloud(self):
         """Upload the original file to cloud database."""
         s3_handler = S3Handler()
@@ -120,6 +128,7 @@ class TextFileState(FileProcessingState):
         object_name = f"{self.doc_id}{ext}"
         s3_handler.upload_file(self.file_path, object_name=object_name)
 
+    # Retrieve the most similar document based on a query
     def retrieve(self, query, local_folder):
         """Retrieve the most similar document."""
         vectorstore = Chroma(
@@ -128,10 +137,9 @@ class TextFileState(FileProcessingState):
             persist_directory=local_folder
         )
         return vectorstore.similarity_search(query, k=1)
-    
 
 
-# State for processing PDF files (Placeholder, actual implementation needed)
+# Placeholder class for PDF file processing
 class PDFFileState(FileProcessingState):
     def read(self, file_path):
         """Read the file."""
@@ -154,27 +162,25 @@ class PDFFileState(FileProcessingState):
         pass
 
 
-# State for processing Word files (Placeholder, actual implementation needed)
+# State for processing Word (.docx) files
 class WordFileState(FileProcessingState):
     def __init__(self):
-        self.embeddings = OpenAIEmbeddings()
+        self.embeddings = OpenAIEmbeddings()  # Initialize embeddings
         self.file_path = None
         self.vectorstore = None
         self.local_folder = None
         self.doc_id = None
 
+    # Read content from a Word document using python-docx
     def read(self, file_path):
         """Read the Word file."""
         self.file_path = file_path
-        # Use python-docx to read Word file
         doc = DocxReader(file_path)
-        full_text = []
-        for para in doc.paragraphs:
-            full_text.append(para.text)
+        full_text = [para.text for para in doc.paragraphs]
         return '\n'.join(full_text)
 
+    # Preprocess content by summarizing it using LLM
     def preprocess(self, content):
-        """Preprocess by summarizing the text using an LLM."""
         doc = Document(page_content=content)
         chain = (
             {"doc": lambda x: x.page_content}
@@ -185,6 +191,7 @@ class WordFileState(FileProcessingState):
         summary = chain.invoke(doc)
         return summary
 
+    # Vectorize content and set up local folder for persistence
     def vectorize(self, local_folder):
         """Set up the vector store for embeddings."""
         self.local_folder = local_folder
@@ -195,6 +202,7 @@ class WordFileState(FileProcessingState):
         )
         return self.vectorstore
 
+    # Store vectorized document locally with metadata
     def store_local(self, doc_id, content):
         """Store the document vectors locally with metadata."""
         self.doc_id = doc_id
@@ -202,7 +210,7 @@ class WordFileState(FileProcessingState):
             Document(page_content=content, metadata={"doc_id": doc_id, "doc_type": "docx"})
         ]
         try:
-            self.vectorstore.add_documents(summary_docs, ids=[doc_id])
+            self.vectorstore.add_documents(summary_docs, ids=[doc_id])  # Add to vector store
             doc_id_file_path = os.path.join(self.local_folder, "doc_id.json")
             if not os.path.exists(doc_id_file_path):
                 with open(doc_id_file_path, 'w', encoding='utf-8') as f:
@@ -216,6 +224,7 @@ class WordFileState(FileProcessingState):
         except Exception as e:
             print(f"Error occurred in WordFileState.store_local: {str(e)}")
 
+    # Upload the original Word file to cloud storage
     def store_cloud(self):
         """Upload the original Word file to cloud storage."""
         s3_handler = S3Handler()
@@ -223,6 +232,7 @@ class WordFileState(FileProcessingState):
         object_name = f"{self.doc_id}{ext}"
         s3_handler.upload_file(self.file_path, object_name=object_name)
 
+    # Retrieve the most similar document based on a query
     def retrieve(self, query, local_folder):
         """Retrieve the most similar document based on the query."""
         vectorstore = Chroma(
