@@ -1,34 +1,47 @@
-import os
+import pytest
 import redis
+from services.common.config import REDIS_HOST, REDIS_PORT
 
 from services.file_management.serviceManager import RedisManager
-
-# Configure Redis connection settings (localhost because we're using Docker)
-os.environ['REDIS_HOST'] = 'localhost'
-os.environ['REDIS_PORT'] = '6379'
+from services.generation.redis_client import RedisClient
 
 # Initialize RedisManager to ensure Redis setup
-redis_manager = RedisManager()
-redis_manager.init()  # Starts Redis if not already running
+RedisManager().init()  # Starts Redis if not already running
+redis_client = RedisClient()
+redis_client_input = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
 
 # Connect to Redis and test storage and retrieval
-redis_client = redis.StrictRedis(host=os.getenv('REDIS_HOST'), port=int(os.getenv('REDIS_PORT')), db=0)
 
-def store_and_retrieve_test():
-    # Test data
-    text_id = "test_key"
-    text_content = "This is a test value"
+def test_nonexistent_key():
+    nonexistent_id = 999
+    output = redis_client.get_query(nonexistent_id)
+    assert output == f"No query found in Redis for conversation ID: {nonexistent_id}"
 
-    # Store the test data in Redis
-    redis_client.set(text_id, text_content)
-    print(f"Stored {text_id}: '{text_content}' in Redis.")
+def test_store_and_retrieve():
+    text_id_1 = 1
+    input_1 = "test content 1"
+    redis_client_input.set(f"query:{text_id_1}", input_1)
 
-    # Retrieve and verify the test data
-    retrieved_content = redis_client.get(text_id).decode('utf-8')
-    print(f"Retrieved {text_id}: '{retrieved_content}' from Redis.")
+    assert input_1 == redis_client.get_query(text_id_1)
 
-    assert retrieved_content == text_content, "The retrieved content does not match the stored content!"
+def test_update_existing_key():
+    text_id = 2
+    initial_content = "initial content"
+    updated_content = "updated content"
+    redis_client_input.set(f"query:{text_id}", initial_content)
+    redis_client_input.set(f"query:{text_id}", updated_content)
+    assert updated_content == redis_client.get_query(text_id)
 
-if __name__ == "__main__":
-    store_and_retrieve_test()
-    print("Test completed successfully.")
+def test_delete_key():
+    text_id = 3
+    content = "content to delete"
+    redis_client_input.set(f"query:{text_id}", content)
+    redis_client_input.delete(f"query:{text_id}")
+    output = redis_client.get_query(text_id)
+    assert output == f"No query found in Redis for conversation ID: {text_id}"
+
+def test_special_characters_key():
+    text_id = "special!@#$%^&*()_+"
+    content = "special content"
+    redis_client_input.set(f"query:{text_id}", content)
+    assert content == redis_client.get_query(text_id)

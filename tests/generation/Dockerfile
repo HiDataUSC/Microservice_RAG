@@ -13,6 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the `services` and `tests` directories into the container
 COPY tests/generation /app/tests/generation
 COPY services /app/services
+COPY .env /app/.env
 
 ENV PYTHONPATH=/app
 

@@ -5,7 +5,7 @@ COMPOSE_FILE_PATH="./tests/generation/docker-compose.yml"
 
 # Step 1: Start Docker Compose services
 echo "Starting Docker Compose services"
-docker-compose -f $COMPOSE_FILE_PATH up -d
+docker-compose -f $COMPOSE_FILE_PATH up --build -d
 
 # Step 2: Check if Redis container is running
 echo "Checking if Redis container is running..."
@@ -19,7 +19,7 @@ echo "Redis container is running successfully."
 
 # Step 3: Run the Redis client test inside the app container
 echo "Running Redis client test..."
-docker-compose -f $COMPOSE_FILE_PATH exec app python3 tests/generation/test_redis_client.py  # Execute the test script
+docker-compose -f $COMPOSE_FILE_PATH exec app pytest tests/generation/test_redis_client.py  # Execute the test script
 
 # Step 4: Stop Docker Compose services (containers will stop, but volumes are preserved)
 echo "Stopping Docker Compose services..."
