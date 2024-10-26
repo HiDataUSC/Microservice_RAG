@@ -7,5 +7,5 @@ class RedisHandler:
 
     def store_query(self, query):
         query_id = -1 
-        self.client.set(f'query:{query_id}', query)
+        self.client.set(query_id, query)
         return query_id

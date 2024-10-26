@@ -20,7 +20,7 @@ def test_nonexistent_key():
 def test_store_and_retrieve():
     text_id_1 = 1
     input_1 = "test content 1"
-    redis_client_input.set(f"query:{text_id_1}", input_1)
+    redis_client_input.set(text_id_1, input_1)
 
     assert input_1 == redis_client.get_query(text_id_1)
 
@@ -28,20 +28,20 @@ def test_update_existing_key():
     text_id = 2
     initial_content = "initial content"
     updated_content = "updated content"
-    redis_client_input.set(f"query:{text_id}", initial_content)
-    redis_client_input.set(f"query:{text_id}", updated_content)
+    redis_client_input.set(text_id, initial_content)
+    redis_client_input.set(text_id, updated_content)
     assert updated_content == redis_client.get_query(text_id)
 
 def test_delete_key():
     text_id = 3
     content = "content to delete"
-    redis_client_input.set(f"query:{text_id}", content)
-    redis_client_input.delete(f"query:{text_id}")
+    redis_client_input.set(text_id, content)
+    redis_client_input.delete(text_id)
     output = redis_client.get_query(text_id)
     assert output == f"No query found in Redis for conversation ID: {text_id}"
 
 def test_special_characters_key():
     text_id = "special!@#$%^&*()_+"
     content = "special content"
-    redis_client_input.set(f"query:{text_id}", content)
+    redis_client_input.set(text_id, content)
     assert content == redis_client.get_query(text_id)

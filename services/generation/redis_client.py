@@ -6,7 +6,7 @@ class RedisClient:
         self.client = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
 
     def get_query(self, conv_id: str) -> str:
-        redis_key = f"query:{conv_id}"
+        redis_key = conv_id
         try:
             query = self.client.get(redis_key)
             return query if query else f"No query found in Redis for conversation ID: {conv_id}"
