@@ -19,7 +19,8 @@ echo "Redis container is running successfully."
 
 # Step 3: Run the Redis client test inside the app container
 echo "Running Redis client test..."
-docker-compose -f $COMPOSE_FILE_PATH exec app pytest tests/generation/test_redis_client.py  # Execute the test script
+docker-compose -f $COMPOSE_FILE_PATH exec app pytest tests/generation/test_redis_client.py  # Execute the redis connection test
+docker-compose -f $COMPOSE_FILE_PATH exec app pytest tests/generation/test_file_reader.py   # Execute the file reader test
 
 # Step 4: Stop Docker Compose services (containers will stop, but volumes are preserved)
 echo "Stopping Docker Compose services..."
