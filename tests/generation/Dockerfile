@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the `services` and `tests` directories into the container
 COPY tests/generation /app/tests/generation
+COPY tests/pytest.ini /app/tests/pytest.ini
 COPY services /app/services
 COPY .env /app/.env
 
