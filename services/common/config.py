@@ -9,6 +9,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 load_dotenv(dotenv_path=BASE_DIR / '.env')
 
 # .env file loaded, use os.getenv() to retrieve variables
+USER_NAME = os.getenv('USER_NAME')
+USER_PASSWORD = os.getenv('USER_PASSWORD')
 LANGCHAIN_TRACING_V2 = os.getenv('LANGCHAIN_TRACING_V2')
 LANGCHAIN_ENDPOINT = os.getenv('LANGCHAIN_ENDPOINT')
 LANGCHAIN_API_KEY = os.getenv('LANGCHAIN_API_KEY')

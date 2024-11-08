@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from docx import Document as DocxReader
 from pathlib import Path
 import mimetypes
+import zipfile
 from langchain import hub
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
@@ -50,12 +51,6 @@ class FileProcessingState(ABC):
     @abstractmethod
     def store_cloud(self):
         """Store data to the cloud"""
-        pass
-
-    # Abstract method to retrieve information based on similarity search
-    @abstractmethod
-    def retrieve(self, query, local_folder):
-        """Retrieve using similarity search."""
         pass
 
 # State for processing text (.txt) files
@@ -122,21 +117,20 @@ class TextFileState(FileProcessingState):
 
     # Upload the original file to cloud storage
     def store_cloud(self):
-        """Upload the original file to cloud database."""
+        """Upload the original Word file to cloud storage."""
         s3_handler = S3Handler()
         ext = Path(self.file_path).suffix.lower()
         object_name = f"{self.doc_id}{ext}"
-        s3_handler.upload_file(self.file_path, object_name=object_name)
+        file_name = Path(self.file_path).name
+        s3_handler.upload_file(self.file_path, folder_prefix="files", object_name=object_name, metadata={"name": file_name})
 
-    # Retrieve the most similar document based on a query
-    def retrieve(self, query, local_folder):
-        """Retrieve the most similar document."""
-        vectorstore = Chroma(
-            collection_name="summaries", 
-            embedding_function=OpenAIEmbeddings(),
-            persist_directory=local_folder
-        )
-        return vectorstore.similarity_search(query, k=1)
+        useful_files = ["chroma.sqlite3", "doc_id.json"]
+        for root, _, files in os.walk(self.local_folder):
+            for file in files:
+                if file in useful_files:
+                    file_path = os.path.join(root, file)
+                    s3_handler.upload_file(file_path, folder_prefix="vectorized_db", object_name=file)
+
 
 
 # Placeholder class for PDF file processing
@@ -230,17 +224,15 @@ class WordFileState(FileProcessingState):
         s3_handler = S3Handler()
         ext = Path(self.file_path).suffix.lower()
         object_name = f"{self.doc_id}{ext}"
-        s3_handler.upload_file(self.file_path, object_name=object_name)
+        file_name = Path(self.file_path).name
+        s3_handler.upload_file(self.file_path, folder_prefix="files", object_name=object_name, metadata={"name": file_name})
 
-    # Retrieve the most similar document based on a query
-    def retrieve(self, query, local_folder):
-        """Retrieve the most similar document based on the query."""
-        vectorstore = Chroma(
-            collection_name="summaries",
-            embedding_function=OpenAIEmbeddings(),
-            persist_directory=local_folder
-        )
-        return vectorstore.similarity_search(query, k=1)
+        useful_files = ["chroma.sqlite3", "doc_id.json"]
+        for root, _, files in os.walk(self.local_folder):
+            for file in files:
+                if file in useful_files:
+                    file_path = os.path.join(root, file)
+                    s3_handler.upload_file(file_path, folder_prefix="vectorized_db", object_name=file)
 
 
 # Utility function to detect file type and return the appropriate state class

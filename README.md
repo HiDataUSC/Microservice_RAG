@@ -1,5 +1,8 @@
 # Microservice_RAG
 
+Global variables:
+- saved in .env file
+
 Navigate to /path/to/Microservice_RAG
 
 Install:
@@ -9,3 +12,11 @@ Install:
 
 Run test for Generate microservice:
 1. run `./tests/generation/generation_test.sh`
+
+To run the website:
+1. Navigate to `frontend/chatflow`
+2. open terminal 1 run `python -m tests.api_server`
+3. open terminal 2 run `npm run dev`
+
+manage vectorized db:
+`python -m services.common.vectorstore_action`

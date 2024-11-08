@@ -163,6 +163,7 @@ cython_debug/
 
 # local folder
 local_folder/
+experiment/
 
 # test case document folder
 test_doc/

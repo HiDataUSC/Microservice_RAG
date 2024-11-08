@@ -34,4 +34,4 @@ class Retriever:
         :param doc_id: The unique document identifier used to locate the file in S3.
         :param dst_folder: The destination folder where the document will be downloaded.
         """
-        self.s3_handler.download_file(doc_id, dst_folder)
+        self.s3_handler.download_file(folder_prefix = "files", object_name_prefix = doc_id, dst_folder=dst_folder)

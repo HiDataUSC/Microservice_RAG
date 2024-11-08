@@ -10,16 +10,12 @@ import LLMNode from '@/components/vue-flow/nodes/LLM-node.vue'
 import CodeNode from '@/components/vue-flow/nodes/code-node.vue'
 import KnowledgeNode from '@/components/vue-flow/nodes/knowledge-node.vue'
 import ApiNode from '@/components/vue-flow/nodes/api-node.vue'
-import ConversationNode from '@/components/vue-flow/nodes/conversation-node.vue' // Import the new node
+import ConversationNode from '@/components/vue-flow/nodes/conversation-node.vue'
+import Document_uploadNode from '@/components/vue-flow/nodes/document_upload-node.vue'
 import { Test_data } from '@/lib/constant'
 
 import type { Dimensions, Elements } from '@vue-flow/core'
 import type { Node, Edge } from '@vue-flow/core'
-
-// const elements = ref<Elements>()
-// const props = defineProps<{
-//   data: { nodes: Elements['nodes']; edges: Elements['edges']; position: [number, number]; zoom: number }
-// }>()
 
 const props = defineProps<{
   data: { nodes: Node[]; edges: Edge[]; position: [number, number]; zoom: number }
@@ -32,7 +28,8 @@ const nodeTypes = {
   code: markRaw(CodeNode),
   knowledge: markRaw(KnowledgeNode),
   api: markRaw(ApiNode),
-  conversation: markRaw(ConversationNode)
+  conversation: markRaw(ConversationNode),
+  document_upload: markRaw(Document_uploadNode)
 }
 
 const { findNode, nodes, addNodes, addEdges, project, vueFlowRef, onConnect, setNodes, setEdges, setViewport } = useVueFlow()

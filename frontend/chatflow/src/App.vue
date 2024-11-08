@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted} from 'vue'
 import { PlusIcon, GhostIcon } from 'lucide-vue-next'
 import { useVueFlow } from '@vue-flow/core'
 import { useClipboard } from '@vueuse/core'
@@ -9,6 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import mainCanvas from '@/components/main-canvas.vue'
 import { Button } from '@/components/ui/button'
 import { Toaster, useToast } from '@/components/ui/toast'
+import axios from 'axios'
 
 const projects = ref([
   { id: 'project-1', name: 'Project 1', flowchartData: [] },
@@ -101,6 +102,19 @@ function handleClickPublishBtn() {
     description: '1.valid data 2.fetch backend api to save result'
   })
 }
+
+onMounted(async () => {
+  try {
+    const response = await axios.post('http://localhost:5000/download_vectorized_db')
+    if (response.status === 200) {
+      console.log('Files downloaded successfully:', response.data.message)
+    } else {
+      console.error('Error downloading files:', response.data.error)
+    }
+  } catch (error) {
+    console.error('Error making request:', error)
+  }
+})
 </script>
 
 <template>
@@ -161,65 +175,29 @@ function handleClickPublishBtn() {
                 >
                   <div class="flex items-center justify-between">
                     <h3 class="flex items-center gap-x-1">
-                      <!-- <img src="~@/assets/images/icon_LLM.png" class="h-4 w-4" alt="LLM icon" /> -->
+                      <img src="~@/assets/images/icon_LLM.png" class="h-4 w-4" alt="LLM icon" />
                       Conversation Block
                     </h3>
                   </div>
                   <p class="mt-2 text-sm text-gray-400">
                     Create a block representing a conversation with individual messages as nodes.
                   </p>
-                </div>
+                </div>  
                 <div
                   class="mx-6 mb-6 cursor-grab rounded-md bg-white p-6 shadow-md"
                   :draggable="true"
-                  @dragstart="handleOnDragStart($event, 'LLM')"
-                >
-                  <div class="flex items-center justify-between">
-                    <h3 class="flex items-center gap-x-1">
-                      <img src="~@/assets/images/icon_LLM.png" class="h-4 w-4" alt="LLM icon" />
-                      LLM
-                    </h3>
-                    <plus-icon class="text-primary" />
-                  </div>
-                  <p class="mt-2 text-sm text-gray-400">
-                    Invoke the large language model, <br />
-                    generate responses using variables and prompt words.
-                  </p>
-                </div>
-                <div
-                  class="mx-6 mb-6 cursor-grab rounded-md bg-white p-6 shadow-md"
-                  :draggable="true"
-                  @dragstart="handleOnDragStart($event, 'code')"
-                >
-                  <div class="flex items-center justify-between">
-                    <h3 class="flex items-center gap-x-1">
-                      <img src="~@/assets/images/icon_Code.png" class="h-4 w-4" alt="LLM icon" />
-                      Code
-                    </h3>
-                    <plus-icon class="text-primary" />
-                  </div>
-                  <p class="mt-2 text-sm text-gray-400">
-                    Write code to process input variables <br />
-                    to generate return values.
-                  </p>
-                </div>
-                <div
-                  class="mx-6 mb-6 cursor-grab rounded-md bg-white p-6 shadow-md"
-                  :draggable="true"
-                  @dragstart="handleOnDragStart($event, 'knowledge')"
+                  @dragstart="handleOnDragStart($event, 'document_upload')"
                 >
                   <div class="flex items-center justify-between">
                     <h3 class="flex items-center gap-x-1">
                       <img src="~@/assets/images/icon_Knowledge.png" class="h-4 w-4" alt="Knowledge icon" />
-                      Knowledge
+                      Document Upload Block
                     </h3>
-                    <plus-icon class="text-primary" />
                   </div>
                   <p class="mt-2 text-sm text-gray-400">
-                    In the selected knowledge, the best matching information is recalled based on the input variable and
-                    returned as an Array.
+                    Create a block to upload documents.
                   </p>
-                </div>
+                </div>  
               </scroll-area>
             </tabs-content>
 

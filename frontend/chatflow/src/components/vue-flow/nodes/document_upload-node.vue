@@ -24,30 +24,6 @@ const isEditTitle = ref(false)
 const node = useNode()
 const { removeNodes, nodes, addNodes } = useVueFlow()
 
-// Send message and receive response
-async function sendMessage() {
-  if (userMessage.value.trim() === '') return
-  
-  messages.value.push({ id: Date.now(), text: userMessage.value, isUser: true })
-
-  const userQuery = userMessage.value
-  userMessage.value = ''
-
-  const aiResponse = await getAiResponse(userQuery)
-  messages.value.push({ id: Date.now() + 1, text: aiResponse, isUser: false })
-}
-
-// Simulate AI response function (you can replace this with an actual API call)
-async function getAiResponse(userText: string): Promise<string> {
-  try {
-    const response = await axios.post('http://127.0.0.1:5000/retrieve', { query: userText })
-    return response.data.answer || 'No answer was generated.'
-  } catch (error) {
-    console.error('Error fetching answer from server:', error)
-    return 'Error: Unable to get response from server.'
-  }
-}
-
 function handleClickDeleteBtn() {
   removeNodes(node.id)
 }
@@ -67,8 +43,40 @@ function handleClickDuplicateBtn() {
   addNodes(newNode)
 }
 
-function handleScroll(event: WheelEvent) {
-  event.stopPropagation();
+const selectedFile = ref<File | null>(null)
+
+function handleFileChange(event: Event) {
+  const target = event.target as HTMLInputElement
+  if (target.files && target.files.length > 0) {
+    selectedFile.value = target.files[0]
+  }
+}
+
+const isUploading = ref(false)
+
+async function handleUpload() {
+  if (!selectedFile.value) return
+
+  const formData = new FormData()
+  formData.append('file', selectedFile.value)
+
+  isUploading.value = true
+  try {
+    await axios.post('http://127.0.0.1:5000/upload', formData)
+    alert('Upload Success')
+
+    const response = await axios.post('http://localhost:5000/download_vectorized_db')
+    if (response.status === 200) {
+      console.log('Document Download Success:', response.data.message)
+    } else {
+      console.error('Document Download Failed:', response.data.error)
+    }
+  } catch (error) {
+    console.error('Upload Failed:', error)
+    alert('Upload Failed')
+  } finally {
+    isUploading.value = false
+  }
 }
 </script>
 
@@ -78,7 +86,7 @@ function handleScroll(event: WheelEvent) {
     <div class="flex flex-col gap-y-4">
       <div class="flex justify-between">
         <div class="flex gap-x-2">
-          <img src="~@/assets/images/icon_LLM.png" class="mt-1 h-4 w-4" alt="LLM icon" />
+          <img src="~@/assets/images/icon_Knowledge.png" class="mt-1 h-4 w-4" alt="Knowledge icon" />
           <div class="flex flex-col gap-y-1">
             <Input v-model="title" class="h-5" v-if="isEditTitle" @blur="() => (isEditTitle = false)" />
             <h3 class="text-base" v-else>{{ title }}</h3>
@@ -101,34 +109,12 @@ function handleScroll(event: WheelEvent) {
         </Menubar>
       </div>
 
-      <span class="text-sm text-gray-500">Chat with your document directly in this node.</span>
-      <div class="flex flex-col gap-y-4">
-        <!-- Message Display Area -->
-        <div
-          class="message-display-area h-40 overflow-y-auto overflow-x-hidden border-t border-b border-gray-200 py-2"
-          @wheel="handleScroll"
-        >
-          <div
-            v-for="message in messages"
-            :key="message.id"
-            :class="{ 'text-right': message.isUser, 'text-left': !message.isUser }"
-            class="message-bubble"
-          >
-            <div
-              class="p-2 rounded-lg w-full"
-              :class="message.isUser ? 'bg-blue-200 user-message' : 'bg-gray-200 ai-message'"
-              style="white-space: pre-wrap; word-break: break-word;"
-            >
-              {{ message.text }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Input Area -->
-        <div class="flex gap-x-2 items-center">
-          <Input v-model="userMessage" placeholder="Type your message..." class="flex-1" />
-          <Button @click="sendMessage">Send</Button>
-        </div>
+      <span class="text-sm text-gray-500">drag and drop your documents in this node.</span>
+      <div>
+        <input type="file" @change="handleFileChange" />
+        <button @click="handleUpload" :disabled="!selectedFile || isUploading">
+          {{ isUploading ? 'Processing, please wait...' : 'Upload' }}
+        </button>
       </div>
     </div>
     <Handle type="source" :position="Position.Right" />
