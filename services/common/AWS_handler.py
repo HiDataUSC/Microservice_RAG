@@ -79,6 +79,34 @@ class S3Handler:
         except ClientError as e:
             logging.error(e)
             return False
+        
+    def read_list(self, folder_prefix): 
+        """Read list of files from an S3 bucket.
+        
+        :param folder_prefix: S3 folder prefix
+        :return: List of files in the specified folder with their metadata
+        """
+        try:
+            full_prefix = f"{USER_NAME}/{folder_prefix}/"
+            response = self.s3.list_objects_v2(Bucket=AWS_S3_BUCKET, Prefix=full_prefix)
+            files = []
+            for content in response.get('Contents', []):
+                if content['Key'] != full_prefix:
+                    metadata = self.s3.head_object(Bucket=AWS_S3_BUCKET, Key=content['Key']).get('Metadata', {})
+                    files.append({'content': content, 'metadata': metadata})
+            return files
+        except Exception as e:
+            print(f"Error listing files: {e}")
+            return None
+        
+    def delete_file(self, file_key):
+        """Delete a file from an S3 bucket."""
+        try:
+            self.s3.delete_object(Bucket=AWS_S3_BUCKET, Key=file_key)
+            return True
+        except ClientError as e:
+            logging.error(e)
+            return False
 
 class RDBHandler:
     def __init__(self):

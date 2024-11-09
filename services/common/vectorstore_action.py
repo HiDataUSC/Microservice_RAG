@@ -54,6 +54,7 @@ def delete_document_by_id(doc_id_to_delete):
             # Update doc_id list
             with open(doc_id_file_path, 'w', encoding='utf-8') as f:
                 json.dump(doc_ids, f, indent=4)
+        return True
     
     except Exception as e:
         print(f"Error occurred while deleting document: {str(e)}")

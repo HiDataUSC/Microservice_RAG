@@ -11,6 +11,7 @@ from services.generation.app import Generation
 from services.common.AWS_handler import S3Handler
 
 from services.common.config import LOCAL_FOLDER
+from services.common.vectorstore_action import delete_document_by_id
 
 app = Flask(__name__)
 CORS(app)
@@ -70,6 +71,7 @@ doc_service = DocumentService()
 
 @app.route('/upload', methods=['POST'])
 def upload_document():
+    s3_handler = S3Handler()
     if 'file' not in request.files:
         return jsonify({'error': 'No file part in the request'}), 400
 
@@ -81,13 +83,13 @@ def upload_document():
         file_path = os.path.join(LOCAL_FOLDER, file.filename)
         file.save(file_path)
         message, status_code = doc_service.upload_document(file_path)
+        files = s3_handler.read_list(folder_prefix="files")
         
         if os.path.exists(file_path):
             os.remove(file_path)
         
-        return jsonify({'message': message}), status_code
+        return jsonify({'message': message, 'files': files}), status_code
     except Exception as e:
-        # 打印错误日志
         print(f"Error during file upload: {e}")
         return jsonify({'error': f"Internal server error: {str(e)}"}), 500
 
@@ -127,6 +129,48 @@ def download_vectorized_db():
     except Exception as e:
         print(f"Error downloading files: {e}")
         return jsonify({'error': f"Error downloading files: {str(e)}"}), 500
+
+@app.route('/read_file_list', methods=['GET'])
+def read_file_list():
+    """Read list of files from the S3 'files' folder."""
+    s3_handler = S3Handler()
+
+    try:
+        files = s3_handler.read_list(folder_prefix="files")
+        if files is not None:
+            return jsonify({'files': files}), 200
+        else:
+            return jsonify({'error': 'No files found or error occurred.'}), 404
+    except Exception as e:
+        print(f"Error listing files: {e}")
+        return jsonify({'error': f"Error listing files: {str(e)}"}), 500
+    
+@app.route('/delete_file', methods=['POST'])
+def delete_file():
+    """Delete a file from the S3 'files' folder."""
+    s3_handler = S3Handler()
+    file_key = request.json.get('key')
+
+    if not file_key:
+        return jsonify({'error': 'File key is required'}), 400
+
+    try:
+        doc_id_to_delete = os.path.splitext(os.path.basename(file_key))[0]
+        vectorestore_delete_success = delete_document_by_id(doc_id_to_delete)
+        cloud_delete_success = s3_handler.delete_file(file_key)
+        if cloud_delete_success and vectorestore_delete_success:
+            useful_files = ["chroma.sqlite3", "doc_id.json"]
+            for root, _, files in os.walk(LOCAL_FOLDER):
+                for file in files:
+                    if file in useful_files:
+                        file_path = os.path.join(root, file)
+                        s3_handler.upload_file(file_path, folder_prefix="vectorized_db", object_name=file)
+            return jsonify({'message': 'File deleted successfully.'}), 200
+        else:
+            return jsonify({'error': 'Failed to delete file.'}), 500
+    except Exception as e:
+        print(f"Error deleting file: {e}")
+        return jsonify({'error': f"Error deleting file: {str(e)}"}), 500
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000)

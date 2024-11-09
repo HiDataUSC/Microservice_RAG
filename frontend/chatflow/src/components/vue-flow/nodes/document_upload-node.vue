@@ -1,21 +1,18 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useEventBus } from '@vueuse/core'
 import { MoreHorizontalIcon } from 'lucide-vue-next'
 import { Handle, Position, useVueFlow, useNode } from '@vue-flow/core'
 import { Menubar, MenubarMenu, MenubarTrigger, MenubarContent, MenubarItem } from '@/components/ui/menubar'
 import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 import axios from 'axios'
 
 import { LLMNodeData, LLMNodeEvents } from './index'
 
 import type { NodeProps } from '@vue-flow/core'
 
-// Placeholder for conversation messages
-const messages = ref<{ id: number; text: string; isUser: boolean }[]>([])
-const userMessage = ref('')
-
 const props = defineProps<NodeProps<LLMNodeData, LLMNodeEvents>>()
+const { emit } = useEventBus('file-uploaded')
 
 const title = ref(props.data.title)
 
@@ -63,11 +60,10 @@ async function handleUpload() {
   isUploading.value = true
   try {
     await axios.post('http://127.0.0.1:5000/upload', formData)
-    alert('Upload Success')
-
     const response = await axios.post('http://localhost:5000/download_vectorized_db')
     if (response.status === 200) {
       console.log('Document Download Success:', response.data.message)
+      emit()
     } else {
       console.error('Document Download Failed:', response.data.error)
     }

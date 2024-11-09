@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted} from 'vue'
 import { PlusIcon, GhostIcon } from 'lucide-vue-next'
 import { useVueFlow } from '@vue-flow/core'
-import { useClipboard } from '@vueuse/core'
+import { useClipboard, useEventBus } from '@vueuse/core'
 
 import { Tabs, TabsTrigger, TabsContent, TabsList } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -103,7 +103,18 @@ function handleClickPublishBtn() {
   })
 }
 
+
+const documents = ref([])
+const file_names = ref([])
+const { on } = useEventBus('file-uploaded')
+
 onMounted(async () => {
+  fetchFileList();
+
+  on(() => {
+    fetchFileList()
+  })
+
   try {
     const response = await axios.post('http://localhost:5000/download_vectorized_db')
     if (response.status === 200) {
@@ -115,6 +126,40 @@ onMounted(async () => {
     console.error('Error making request:', error)
   }
 })
+
+async function fetchFileList() {
+  try {
+    const response = await axios.get('http://localhost:5000/read_file_list');
+    if (response.status === 200) {
+      documents.value = response.data.files;
+      file_names.value = documents.value.map(doc => doc.metadata['name']);
+    } else {
+      console.error('Error fetching file list:', response.data.error);
+    }
+  } catch (error) {
+    console.error('Error making request:', error);
+  }
+}
+
+async function deleteFile(fileKey) {
+  try {
+    const response = await axios.post('http://localhost:5000/delete_file', { key: fileKey });
+    if (response.status === 200) {
+      console.log('File deleted successfully:', response.data.message);
+      documents.value = documents.value.filter(doc => doc.content.Key !== fileKey);
+      file_names.value = documents.value.map(doc => doc.metadata['name']);
+    } else {
+      console.error('Error deleting file:', response.data.error);
+    }
+  } catch (error) {
+    console.error('Error making request:', error);
+  }
+}
+
+function getFileKey(fileName) {
+  const document = documents.value.find(doc => doc.metadata['name'] === fileName);
+  return document ? document.content.Key : null;
+}
 </script>
 
 <template>
@@ -142,11 +187,11 @@ onMounted(async () => {
       <main class="relative flex h-full w-full flex-1">
         <div class="w-96 bg-slate-50">
           <tabs default-value="basic-nodes">
-            <tabs-list class="grid w-full grid-cols-4">
+            <tabs-list class="grid w-full grid-cols-3">
               <tabs-trigger value="projects"> Projects </tabs-trigger>
               <tabs-trigger value="basic-nodes"> Basic Nodes </tabs-trigger>
-              <tabs-trigger value="plugins"> Plugins </tabs-trigger>
-              <tabs-trigger value="workflows"> Workflows </tabs-trigger>
+              <!-- <tabs-trigger value="plugins"> Plugins </tabs-trigger> -->
+              <tabs-trigger value="Documents"> Documents </tabs-trigger>
             </tabs-list>
 
             <!-- Projects Section -->
@@ -223,25 +268,16 @@ onMounted(async () => {
               </scroll-area>
             </tabs-content>
 
-            <tabs-content value="workflows">
+            <tabs-content value="Documents">
               <scroll-area class="h-[calc(100vh-150px)] w-full">
-                <div
-                  class="mx-6 mb-6 cursor-grab rounded-md bg-white p-6 shadow-md"
-                  :draggable="true"
-                  @dragstart="handleOnDragStart($event, 'workflow')"
-                >
-                  <div class="flex items-center justify-between">
-                    <h3 class="flex items-center gap-x-1">
-                      <GhostIcon class="w-12 text-blue-400" />
-                      test_node
-                    </h3>
-                    <plus-icon class="text-primary" />
-                  </div>
-                  <p class="mt-2 border-b pb-2 text-sm text-gray-400">
-                    This is just test workflow, to init initial data.
-                  </p>
-                  <div class="pt-2 text-xs text-gray-400">Edit Time: 2024-02-01</div>
-                </div>
+                <ul class="mx-6 my-4 space-y-2">
+                  <li v-for="file_name in file_names" :key="file_name" class="flex justify-between p-2">
+                    <span>{{ file_name }}</span>
+                    <button @click="deleteFile(getFileKey(file_name))" class="text-red-500 hover:text-red-700">
+                      Delete
+                    </button>
+                  </li>
+                </ul>
               </scroll-area>
             </tabs-content>
           </tabs>
