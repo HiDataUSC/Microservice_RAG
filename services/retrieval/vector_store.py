@@ -11,5 +11,14 @@ class VectorStore:
             persist_directory=self.local_folder
         )
 
-    def similarity_search(self, query, k=1):
-        return self.vectorstore.similarity_search(query, k=k)
+    def similarity_search(self, query, content_keys=None, k=1):
+        if content_keys:
+            filter_dict = {"doc_id": {"$in": content_keys}}
+            return self.vectorstore.similarity_search(
+                query,
+                k=k,
+                filter=filter_dict
+            )
+        else:
+            # 如果没有指定content_keys，则搜索所有文档
+            return self.vectorstore.similarity_search(query, k=k)

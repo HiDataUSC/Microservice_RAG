@@ -18,14 +18,15 @@ class Retriever:
         """
         return self.redis_handler.store_query(query)
 
-    def retrieve(self, query):
+    def retrieve(self, query, content_keys = None):
         """
         Perform a similarity search in the vector store using the provided query.
         
         :param query: The query string to search for similar documents in the vector store.
+        :param content_keys: The content keys to search for similar documents in the vector store.
         :return: The top similar document(s) based on the query.
         """
-        return self.vector_store.similarity_search(query, k=1)
+        return self.vector_store.similarity_search(query, content_keys, k=1)
     
     def full_document(self, doc_id, dst_folder):
         """

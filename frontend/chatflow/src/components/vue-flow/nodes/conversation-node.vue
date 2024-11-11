@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { MoreHorizontalIcon } from 'lucide-vue-next'
 import { Handle, Position, useVueFlow, useNode } from '@vue-flow/core'
 import { Menubar, MenubarMenu, MenubarTrigger, MenubarContent, MenubarItem } from '@/components/ui/menubar'
@@ -22,7 +22,7 @@ const title = ref(props.data.title)
 const isEditTitle = ref(false)
 
 const node = useNode()
-const { removeNodes, nodes, addNodes } = useVueFlow()
+const { removeNodes, nodes, addNodes, edges } = useVueFlow()
 
 // Send message and receive response
 async function sendMessage() {
@@ -33,14 +33,28 @@ async function sendMessage() {
   const userQuery = userMessage.value
   userMessage.value = ''
 
-  const aiResponse = await getAiResponse(userQuery)
+  const connectedDocumentNodes = edges.value
+    .filter(edge => edge.source === node.id || edge.target === node.id)
+    .map(edge => {
+      const connectedNodeId = edge.source === node.id ? edge.target : edge.source
+      return nodes.value.find(n => n.id === connectedNodeId && n.type === 'document_upload')
+    })
+    .filter(Boolean)
+
+  const selectedDocuments = connectedDocumentNodes.flatMap(docNode => docNode.data?.selectedFiles || [])
+  const contentKeys = selectedDocuments.map(doc => (doc.content.Key).split('/').pop().split('.')[0])
+
+  const aiResponse = await getAiResponse(userQuery, contentKeys)
   messages.value.push({ id: Date.now() + 1, text: aiResponse, isUser: false })
 }
 
 // Simulate AI response function (you can replace this with an actual API call)
-async function getAiResponse(userText: string): Promise<string> {
+async function getAiResponse(userText: string, contentKeys: string[]): Promise<string> {
   try {
-    const response = await axios.post('http://127.0.0.1:5000/retrieve', { query: userText })
+    const response = await axios.post('http://localhost:5000/retrieve', { 
+      query: userText,
+      content_keys: contentKeys 
+    })
     return response.data.answer || 'No answer was generated.'
   } catch (error) {
     console.error('Error fetching answer from server:', error)

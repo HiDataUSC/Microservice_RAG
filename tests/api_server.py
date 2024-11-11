@@ -33,13 +33,15 @@ class DocumentService:
         except Exception as e:
             return f"Error uploading document: {e}", 500
 
-    def retrieve_document(self, query):
+    def retrieve_document(self, query, content_keys):
         """Handles document retrieval based on a query."""
         retriever = Retriever()
         generator = Generation()
         try:
+            if not content_keys:
+                return f"No document selected.", 200
             conv_id = retriever.store_query_in_redis(query)
-            docs = retriever.retrieve(query)
+            docs = retriever.retrieve(query, content_keys=content_keys)
             doc = next(iter(docs), None)
             if not doc:
                 print("No documents found for the query.")
@@ -96,9 +98,10 @@ def upload_document():
 @app.route('/retrieve', methods=['POST'])
 def retrieve_document():
     query = request.json.get('query')
+    content_keys = request.json.get('content_keys')
     if not query:
         return jsonify({'error': 'Query is required'}), 400
-    answer, status_code = doc_service.retrieve_document(query)
+    answer, status_code = doc_service.retrieve_document(query, content_keys)
     if status_code == 200:
         return jsonify({'answer': answer}), 200
     else:
