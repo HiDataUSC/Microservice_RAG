@@ -30,7 +30,7 @@ def test_generate_answer(mock_generation):
     mock_generation.redis_client.get_query.assert_called_once_with(conv_id)
     mock_generation.file_reader.read_files.assert_called_once_with(directory_path)
     mock_generation.llm_handler.generate_answer.assert_called_once_with(
-        "The meaning of life is to give life a meaning.", "What is the meaning of life?"
+        question="What is the meaning of life?", context="The meaning of life is to give life a meaning."
     )
 
     assert result == "The meaning of life is 42."
@@ -116,7 +116,7 @@ def test_generate_answer_multiple_context(mock_generation):
 
     # Ensure the LLM generates an answer based on combined context
     mock_generation.llm_handler.generate_answer.assert_called_once_with(
-        "Document 1 content. Document 2 content.", "What is the meaning of life?"
+        question="What is the meaning of life?", context="Document 1 content. Document 2 content."
     )
     assert result == "The meaning of life is 42."
 
@@ -133,7 +133,7 @@ def test_generate_answer_no_redis_valid_context(mock_generation):
 
     # Ensure LLM can proceed with valid context even with no Redis query
     mock_generation.llm_handler.generate_answer.assert_called_once_with(
-        "Valid context from documents.", "No query found in Redis for conversation ID: 12345"
+        question="No query found in Redis for conversation ID: 12345", context="Valid context from documents."
     )
     assert result == "The meaning of life is 42."
 
@@ -150,7 +150,7 @@ def test_generate_answer_redis_failure(mock_generation):
     # Ensure the function handles the Redis failure and generates an appropriate message
     mock_generation.file_reader.read_files.assert_called_once_with(directory_path)
     mock_generation.llm_handler.generate_answer.assert_called_once_with(
-        "The meaning of life is to give life a meaning.", "No query found due to Redis error: Redis connection error"
+        question="No query found due to Redis error: Redis connection error", context="The meaning of life is to give life a meaning."
     )
     
     assert result == "The meaning of life is 42."

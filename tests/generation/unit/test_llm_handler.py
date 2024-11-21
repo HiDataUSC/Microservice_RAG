@@ -21,7 +21,7 @@ def test_generate_answer(mock_chat_openai):
     question = "What is the context?"
 
     # Act
-    result = handler.generate_answer(context, question)
+    result = handler.generate_answer(context = context, question = question)
 
     # Assert
     filled_prompt = handler.prompt.format(context=context, question=question)
@@ -35,7 +35,7 @@ def test_generate_answer_empty_question(mock_chat_openai):
     
     context = "Some context information"
     question = ""
-    result = handler.generate_answer(context, question)
+    result = handler.generate_answer(context = context, question = question)
     filled_prompt = handler.prompt.format(context=context, question=question)
     mock_chat_openai.invoke.assert_called_once_with(filled_prompt)
     assert result == "Answer for empty question"
@@ -47,7 +47,7 @@ def test_generate_answer_empty_context(mock_chat_openai):
 
     context = ""
     question = "What is the context?"
-    result = handler.generate_answer(context, question)
+    result = handler.generate_answer(context = context, question = question)
     filled_prompt = handler.prompt.format(context=context, question=question)
     mock_chat_openai.invoke.assert_called_once_with(filled_prompt)
     assert result == "Answer for empty context"
@@ -59,7 +59,7 @@ def test_generate_answer_long_context(mock_chat_openai):
     
     context = "This is a very long context" * 100  # Long string for context
     question = "What is the context?"
-    result = handler.generate_answer(context, question)
+    result = handler.generate_answer(context = context, question = question)
     filled_prompt = handler.prompt.format(context=context, question=question)
     mock_chat_openai.invoke.assert_called_once_with(filled_prompt)
     assert result == "Answer for long context"
@@ -71,7 +71,7 @@ def test_generate_answer_long_question(mock_chat_openai):
     
     context = "Some context information"
     question = "What is the meaning of life?" * 100  # Long string for question
-    result = handler.generate_answer(context, question)
+    result = handler.generate_answer(context = context, question = question)
     filled_prompt = handler.prompt.format(context=context, question=question)
     mock_chat_openai.invoke.assert_called_once_with(filled_prompt)
     assert result == "Answer for long question"
@@ -83,7 +83,7 @@ def test_generate_answer_special_characters(mock_chat_openai):
     
     context = "Context with special characters: @#$%^&*()!"
     question = "What about special characters?"
-    result = handler.generate_answer(context, question)
+    result = handler.generate_answer(context = context, question = question)
     filled_prompt = handler.prompt.format(context=context, question=question)
     mock_chat_openai.invoke.assert_called_once_with(filled_prompt)
     assert result == "Answer for special characters"
@@ -95,7 +95,7 @@ def test_generate_answer_numeric_context(mock_chat_openai):
     
     context = "1234567890"
     question = "What is the number?"
-    result = handler.generate_answer(context, question)
+    result = handler.generate_answer(context = context, question = question)
     filled_prompt = handler.prompt.format(context=context, question=question)
     mock_chat_openai.invoke.assert_called_once_with(filled_prompt)
     assert result == "Answer for numeric context"
@@ -107,7 +107,7 @@ def test_generate_answer_numeric_question(mock_chat_openai):
     
     context = "Some context information"
     question = "What is 1234567890?"
-    result = handler.generate_answer(context, question)
+    result = handler.generate_answer(context = context, question = question)
     filled_prompt = handler.prompt.format(context=context, question=question)
     mock_chat_openai.invoke.assert_called_once_with(filled_prompt)
     assert result == "Answer for numeric question"
@@ -119,7 +119,7 @@ def test_generate_answer_mixed_context_and_question(mock_chat_openai):
     
     context = "Mix of numbers 123, special chars @#&, and letters."
     question = "What is the mix?"
-    result = handler.generate_answer(context, question)
+    result = handler.generate_answer(context = context, question = question)
     filled_prompt = handler.prompt.format(context=context, question=question)
     mock_chat_openai.invoke.assert_called_once_with(filled_prompt)
     assert result == "Answer for mixed input"
@@ -131,7 +131,7 @@ def test_generate_answer_invalid_input(mock_chat_openai):
     
     context = ""
     question = ""
-    result = handler.generate_answer(context, question)
+    result = handler.generate_answer(context = context, question = question)
     filled_prompt = handler.prompt.format(context=context, question=question)
     mock_chat_openai.invoke.assert_called_once_with(filled_prompt)
     assert result == "Answer for invalid input"

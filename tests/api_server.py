@@ -36,10 +36,7 @@ class DocumentService:
     def retrieve_document(self, query, content_keys):
         """Handles document retrieval based on a query."""
         retriever = Retriever()
-        generator = Generation()
         try:
-            if not content_keys:
-                return f"No document selected.", 200
             conv_id = retriever.store_query_in_redis(query)
             docs = retriever.retrieve(query, content_keys=content_keys)
             doc = next(iter(docs), None)
@@ -47,10 +44,16 @@ class DocumentService:
                 print("No documents found for the query.")
                 return
 
-            doc_id = doc.metadata.get('doc_id')
-            retriever.full_document(doc_id, self.dst_folder)
-            answer = generator.generate_answer(conv_id, self.dst_folder)
-            return answer, 200
+            if content_keys:
+                generator = Generation('RAG')
+                doc_id = doc.metadata.get('doc_id')
+                retriever.full_document(doc_id, self.dst_folder)
+                answer = generator.generate_answer(conv_id, self.dst_folder)
+                return answer, 200
+            else:
+                generator = Generation('GPT')
+                answer = generator.generate_answer(conv_id, None)
+                return answer, 200
         except Exception as e:
             return f"Error retrieving document: {e}", 500
         finally:
