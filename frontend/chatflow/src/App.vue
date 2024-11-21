@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Toaster, useToast } from '@/components/ui/toast'
 import axios from 'axios'
 
-import {file_names, documents} from './main.js'
+import {file_names, documents, BASE_URL} from './main.js'
 
 const projects = ref([
   { id: 'project-1', name: 'Project 1', flowchartData: [] },
@@ -135,7 +135,7 @@ onMounted(async () => {
   fetchFileList();
 
   try {
-    const response = await axios.post('http://localhost:5000/download_vectorized_db')
+    const response = await axios.post(`${BASE_URL}/download_vectorized_db`)
     if (response.status === 200) {
     } else {
       console.error('Error downloading files:', response.data.error)
@@ -147,7 +147,7 @@ onMounted(async () => {
 
 async function fetchFileList() {
   try {
-    const response = await axios.get('http://localhost:5000/read_file_list');
+    const response = await axios.get(`${BASE_URL}/read_file_list`);
     if (response.status === 200) {
       documents.value = response.data.files;
       file_names.value = documents.value.map(doc => doc.metadata['name']);
@@ -161,7 +161,7 @@ async function fetchFileList() {
 
 async function deleteFile(fileKey) {
   try {
-    const response = await axios.post('http://localhost:5000/delete_file', { key: fileKey });
+    const response = await axios.post(`${BASE_URL}/delete_file`, { key: fileKey });
     if (response.status === 200) {
       documents.value = documents.value.filter(doc => doc.content.Key !== fileKey);
       file_names.value = documents.value.map(doc => doc.metadata['name']);
@@ -217,8 +217,8 @@ async function handleUpload() {
 
   isUploading.value = true
   try {
-    await axios.post('http://localhost:5000/upload', formData)
-    const response = await axios.post('http://localhost:5000/download_vectorized_db')
+    await axios.post(`${BASE_URL}/upload`, formData)
+    const response = await axios.post(`${BASE_URL}/download_vectorized_db`)
     if (response.status === 200) {
       fetchFileList()
     } else {

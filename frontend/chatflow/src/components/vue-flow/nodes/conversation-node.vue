@@ -10,6 +10,7 @@ import axios from 'axios'
 import { LLMNodeData, LLMNodeEvents } from './index'
 
 import type { NodeProps } from '@vue-flow/core'
+import {file_names, documents, BASE_URL} from '@/main.js'
 
 // Placeholder for conversation messages
 const messages = ref<{ id: number; text: string; isUser: boolean }[]>([])
@@ -51,7 +52,7 @@ async function sendMessage() {
 // Simulate AI response function (you can replace this with an actual API call)
 async function getAiResponse(userText: string, contentKeys: string[]): Promise<string> {
   try {
-    const response = await axios.post('http://localhost:5000/retrieve', { 
+    const response = await axios.post(`${BASE_URL}/retrieve`, { 
       query: userText,
       content_keys: contentKeys 
     })
