@@ -54,7 +54,8 @@ async function getAiResponse(userText: string, contentKeys: string[]): Promise<s
   try {
     const response = await axios.post(`${BASE_URL}/retrieve`, { 
       query: userText,
-      content_keys: contentKeys 
+      content_keys: contentKeys,
+      node_id: node.id 
     })
     return response.data.answer || 'No answer was generated.'
   } catch (error) {

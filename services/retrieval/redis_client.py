@@ -1,11 +1,13 @@
-import redis
-from services.common.config import REDIS_HOST, REDIS_PORT
+from services.common.Redis_handler import RedisHandler
 
-class RedisHandler:
+class RedisClient(RedisHandler):
     def __init__(self):
-        self.client = redis.StrictRedis(host=REDIS_HOST, port=REDIS_PORT, db=0, decode_responses=True)
+        super().__init__()
 
-    def store_query(self, query):
-        query_id = -1 
-        self.client.set(query_id, query)
-        return query_id
+    def store_query(self, query, **kwargs):
+        conversation_block_id = kwargs.get('conversation_block_id', -1)
+        conv_id = self.conv_id_generator(conversation_block_id)
+        return super().store_query(conv_id, query, **kwargs)
+    
+    def conv_id_generator(self, conversation_block_id: str) -> str:
+        return super().conv_id_generator(conversation_block_id)

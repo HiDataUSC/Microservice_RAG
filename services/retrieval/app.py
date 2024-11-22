@@ -1,22 +1,24 @@
 from services.common.AWS_handler import S3Handler
-from services.retrieval.redis_client import RedisHandler
+from services.retrieval.redis_client import RedisClient
 from services.retrieval.vector_store import VectorStore
 
 class Retriever:
     """Class to handle document retrieval from local vector store and downloading full documents from S3."""
     def __init__(self):
         """Initialize the Retrieve class with a local folder for persistence of vector store data."""
-        self.redis_handler = RedisHandler()
+        self.redis_handler = RedisClient()
         self.vector_store = VectorStore()
         self.s3_handler = S3Handler()
 
-    def store_query_in_redis(self, query):
+    def store_query_in_redis(self, query, **kwargs):
         """
         Store the query in Redis.
         
         :param query: The query string to store in Redis.
+        :param conv_id: The conversation ID to store the query under.
+        :param sender_id: The sender ID to store the query under.
         """
-        return self.redis_handler.store_query(query)
+        return self.redis_handler.store_query(query, **kwargs)
 
     def retrieve(self, query, content_keys = None):
         """

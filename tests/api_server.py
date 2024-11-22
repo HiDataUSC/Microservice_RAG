@@ -10,7 +10,7 @@ from services.retrieval.app import Retriever
 from services.generation.app import Generation
 from services.common.AWS_handler import S3Handler
 
-from services.common.config import LOCAL_FOLDER
+from services.common.config import LOCAL_FOLDER, USER_NAME
 from services.common.vectorstore_action import delete_document_by_id
 
 app = Flask(__name__)
@@ -33,26 +33,28 @@ class DocumentService:
         except Exception as e:
             return f"Error uploading document: {e}", 500
 
-    def retrieve_document(self, query, content_keys):
+    def retrieve_document(self, query, **kwargs):
         """Handles document retrieval based on a query."""
         retriever = Retriever()
         try:
-            conv_id = retriever.store_query_in_redis(query)
-            docs = retriever.retrieve(query, content_keys=content_keys)
-            doc = next(iter(docs), None)
-            if not doc:
-                print("No documents found for the query.")
-                return
-
+            node_id = kwargs.get('node_id', None)
+            content_keys = kwargs.get('content_keys', None)
+            sender_id = USER_NAME
+            redis_key = retriever.store_query_in_redis(query, sender_id=sender_id, conversation_block_id=node_id)
             if content_keys:
+                docs = retriever.retrieve(query, content_keys=content_keys)
+                doc = next(iter(docs), None)
+                if not doc:
+                    print("No documents found for the query.")
+                    return
                 generator = Generation('RAG')
                 doc_id = doc.metadata.get('doc_id')
                 retriever.full_document(doc_id, self.dst_folder)
-                answer = generator.generate_answer(conv_id, self.dst_folder)
+                answer = generator.generate_answer(redis_key, self.dst_folder)
                 return answer, 200
             else:
                 generator = Generation('GPT')
-                answer = generator.generate_answer(conv_id, None)
+                answer = generator.generate_answer(redis_key, None)
                 return answer, 200
         except Exception as e:
             return f"Error retrieving document: {e}", 500
@@ -100,11 +102,12 @@ def upload_document():
 
 @app.route('/retrieve', methods=['POST'])
 def retrieve_document():
+    node_id = request.json.get('node_id')
     query = request.json.get('query')
     content_keys = request.json.get('content_keys')
     if not query:
         return jsonify({'error': 'Query is required'}), 400
-    answer, status_code = doc_service.retrieve_document(query, content_keys)
+    answer, status_code = doc_service.retrieve_document(query, content_keys=content_keys, node_id=node_id)
     if status_code == 200:
         return jsonify({'answer': answer}), 200
     else:
