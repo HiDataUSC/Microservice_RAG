@@ -90,3 +90,22 @@ class RedisHandler:
         except Exception as e:
             print(f"Error in conv_id_generator: {str(e)}")
             return "-1"
+
+    def get_conversation_history(self, conversation_block_id: str) -> list:
+        try:
+            messages = self.get_all_messages(conversation_block_id)
+            if not messages:
+                return []
+            history = []
+            for conv_id, msg_data in messages.items():
+                history.append({
+                    'id': conv_id,
+                    'content': msg_data['query'],
+                    'sender': msg_data['sender_id'],
+                    'timestamp': msg_data['timestamp']
+                })
+            return sorted(history, key=lambda x: int(x['id']) if x['id'].isdigit() else float('inf'))
+
+        except Exception as e:
+            print(f"Error in get_conversation_history: {str(e)}")
+            return []

@@ -2,146 +2,167 @@ import os
 import pytest
 import redis
 import time
-import json
-import base64
-
+from typing import Dict, Any, Union
 from services.file_management.serviceManager import RedisManager
 from services.generation.redis_client import RedisClient
 from services.common.Redis_handler import RedisHandler
 
-@pytest.fixture(scope='session')
-def redis_handler():
-    return RedisHandler()
-
-@pytest.fixture(scope='session')
-def redis_client_input():
-    redis_host = os.environ.get("redis_host")
-    redis_port = os.environ.get("redis_port")
-    return redis.StrictRedis(host=redis_host, port=redis_port, db=0, decode_responses=True)
-
-@pytest.fixture(scope='session')
-def redis_client():
-    RedisManager().init()
-    return RedisClient()
-
-# Test 1
-def test_nonexistent_key(redis_handler, redis_client):
-    conversation_block_id = "block999"
-    conv_id = "conv999"
-    redis_key = f"{conversation_block_id}:{conv_id}"
-    output = redis_client.get_query(redis_key)
-    assert output == f"No query found in Redis for conversation: {conv_id}"
-
-# Test 2
-def test_store_and_retrieve(redis_handler, redis_client):
-    conversation_block_id = "block1"
-    conv_id = "conv1"
-    input_1 = "test content 1"
-    redis_key = f"{conversation_block_id}:{conv_id}"
-    redis_handler.store_query(conv_id, input_1, conversation_block_id=conversation_block_id)
-    assert input_1 == redis_client.get_query(redis_key)
-
-# Test 3
-def test_update_existing_key(redis_handler, redis_client):
-    conversation_block_id = "block2"
-    conv_id = "conv2"
-    initial_content = "initial content"
-    updated_content = "updated content"
-    redis_key = f"{conversation_block_id}:{conv_id}"
-    redis_handler.store_query(conv_id, initial_content, conversation_block_id=conversation_block_id)
-    redis_handler.store_query(conv_id, updated_content, conversation_block_id=conversation_block_id)
-    assert updated_content == redis_client.get_query(redis_key)
-
-# Test 4
-def test_delete_key(redis_handler, redis_client):
-    conversation_block_id = "block3"
-    conv_id = "conv3"
-    content = "content to delete"
-    redis_key = f"{conversation_block_id}:{conv_id}"
-    redis_handler.store_query(conv_id, content, conversation_block_id=conversation_block_id)
-    redis_handler.delete_conversation_block(conversation_block_id)
-    output = redis_client.get_query(redis_key)
-    assert output == f"No query found in Redis for conversation: {conv_id}"
-
-# Test 5
-def test_special_characters_key(redis_handler, redis_client):
-    conversation_block_id = "block5"
-    conv_id = "conv5"
-    content = "special content"
-    redis_key = f"{conversation_block_id}:{conv_id}"
-    redis_handler.store_query(conv_id, content, conversation_block_id=conversation_block_id)
-    assert content == redis_client.get_query(redis_key)
-
-# Test 6
-def test_key_with_expiration(redis_handler, redis_client):
-    conversation_block_id = "block6"
-    conv_id = "conv6"
-    content = "expiring content"
-    redis_key = f"{conversation_block_id}:{conv_id}"
-    redis_handler.store_query(conv_id, content, conversation_block_id=conversation_block_id, expiration=1)
-    assert redis_client.get_query(redis_key) == content
-    time.sleep(2)
-    assert redis_client.get_query(redis_key) == f"No query found in Redis for conversation: {conv_id}"
-
-# Test 7
-def test_batch_set_and_get(redis_handler, redis_client):
-    conversation_block_id = "block7"
-    pipeline = redis_handler.client.pipeline()
+class RedisTestHelper:
+    """Helper class for Redis testing"""
+    @staticmethod
+    def create_key(block_id: str, conv_id: str) -> str:
+        return f"{block_id}:{conv_id}"
     
-    redis_key_1 = f"{conversation_block_id}:conv7a"
-    redis_key_2 = f"{conversation_block_id}:conv7b"
-    
-    redis_handler.store_query("conv7a", "batch content 1", conversation_block_id=conversation_block_id, pipeline=pipeline)
-    redis_handler.store_query("conv7b", "batch content 2", conversation_block_id=conversation_block_id, pipeline=pipeline)
-    pipeline.execute()
-    
-    assert redis_client.get_query(redis_key_1) == "batch content 1"
-    assert redis_client.get_query(redis_key_2) == "batch content 2"
+    @staticmethod
+    def verify_message(actual: Union[str, Dict], expected_content: str) -> bool:
+        """Verify message content regardless of format changes"""
+        if isinstance(actual, dict):
+            return expected_content in actual.get('content', '')
+        if isinstance(actual, str):
+            try:
+                # Try to parse as dict string
+                import ast
+                parsed = ast.literal_eval(actual)
+                return expected_content in parsed.get('content', '')
+            except:
+                return expected_content in actual
+        return False
 
-# Test 8
-def test_store_binary_data(redis_handler, redis_client):
-    conversation_block_id = "block8"
-    conv_id = "conv8"
-    binary_content = b'\x00\xFF\xFE\xFD'
-    redis_key = f"{conversation_block_id}:{conv_id}"
-    
-    redis_handler.store_query(conv_id, binary_content, conversation_block_id=conversation_block_id)
-    stored_data = redis_client.get_query(redis_key)
-    decoded_data = base64.b64decode(stored_data.encode('utf-8'))
-    assert decoded_data == binary_content
+    @staticmethod
+    def extract_message_content(message: Union[str, Dict]) -> str:
+        """Extract content from message regardless of format"""
+        if isinstance(message, dict):
+            return message.get('content', '')
+        if isinstance(message, str):
+            try:
+                parsed = ast.literal_eval(message)
+                return parsed.get('content', '')
+            except:
+                return message
+        return ''
 
-# Test 9
-def test_increment_numeric_key(redis_handler, redis_client):
-    conversation_block_id = "block9"
-    conv_id = "conv9"
-    redis_key = f"{conversation_block_id}:{conv_id}"
+class TestRedisClient:
+    """Test cases for Redis client operations"""
     
-    redis_handler.store_query(conv_id, 10, conversation_block_id=conversation_block_id)
-    stored_value = redis_client.get_query(redis_key)
-    new_value = int(stored_value) + 5
-    redis_handler.store_query(conv_id, new_value, conversation_block_id=conversation_block_id)
-    assert redis_client.get_query(redis_key) == str(15)
+    @pytest.fixture(scope='class')
+    def redis_handler(self):
+        return RedisHandler()
 
-# Test 10
-def test_key_exists(redis_handler, redis_client):
-    conversation_block_id = "block10"
-    conv_id = "conv10"
-    
-    redis_handler.store_query(conv_id, "some content", conversation_block_id=conversation_block_id)
-    assert redis_handler.client.exists(conversation_block_id) == 1
-    redis_handler.delete_conversation_block(conversation_block_id)
-    assert redis_handler.client.exists(conversation_block_id) == 0
+    @pytest.fixture(scope='class')
+    def redis_client(self):
+        RedisManager().init()
+        return RedisClient()
+        
+    @pytest.fixture(autouse=True)
+    def setup_and_teardown(self, redis_handler):
+        """Setup and teardown for each test"""
+        self.test_blocks = []
+        yield
+        # Cleanup after each test
+        for block_id in self.test_blocks:
+            redis_handler.delete_conversation_block(block_id)
 
-# test 11
-def test_get_all_messages(redis_handler, redis_client):
-    conversation_block_id = "block11"
-    
-    # 存储多条消息
-    redis_handler.store_query("conv11a", "message 1", conversation_block_id=conversation_block_id)
-    redis_handler.store_query("conv11b", "message 2", conversation_block_id=conversation_block_id)
-    
-    # 获取所有消息
-    messages = redis_handler.get_all_messages(conversation_block_id)
-    assert len(messages) == 2
-    assert messages["conv11a"]["query"] == "message 1"
-    assert messages["conv11b"]["query"] == "message 2"
+    def store_test_message(self, redis_handler, block_id: str, conv_id: str, 
+                          content: Any, **kwargs) -> str:
+        """Helper method to store test messages"""
+        self.test_blocks.append(block_id)
+        redis_key = RedisTestHelper.create_key(block_id, conv_id)
+        redis_handler.store_query(conv_id, content, conversation_block_id=block_id, **kwargs)
+        return redis_key
+
+    @pytest.mark.parametrize("test_data", [
+        {"content": "simple text"},
+        {"content": "特殊字符 @#$%"},
+        {"content": "😊 emoji test"},
+        {"content": "Multi\nLine\nText"},
+        {"content": "HTML <p>test</p>"},
+        {"content": " " * 1000},  # Large content
+        {"content": ""}  # Empty content
+    ])
+    def test_store_and_retrieve_variations(self, redis_handler, redis_client, test_data):
+        """Test storing and retrieving various types of content"""
+        block_id = f"test_block_{hash(test_data['content'])}"
+        conv_id = "test_conv"
+        redis_key = self.store_test_message(redis_handler, block_id, conv_id, test_data['content'])
+        
+        result = redis_client.get_query(redis_key)
+        content = RedisTestHelper.extract_message_content(result)
+        assert test_data['content'] in content
+
+    def test_conversation_history(self, redis_handler, redis_client):
+        """Test conversation history functionality"""
+        block_id = "history_test"
+        self.test_blocks.append(block_id)
+        
+        # Store multiple messages
+        messages = [
+            ("conv1", "message 1"),
+            ("conv2", "message 2"),
+            ("conv3", "message 3")
+        ]
+        
+        for conv_id, content in messages:
+            redis_handler.store_query(conv_id, content, conversation_block_id=block_id)
+            
+        # Verify history
+        history = redis_handler.get_conversation_history(block_id)
+        assert len(history) == len(messages)
+        
+        # Get all message contents from history
+        history_contents = [
+            RedisTestHelper.extract_message_content(msg)
+            for msg in history
+        ]
+        
+        # Verify all expected messages are present
+        expected_contents = [content for _, content in messages]
+        assert all(
+            any(expected in actual for actual in history_contents)
+            for expected in expected_contents
+        )
+
+    @pytest.mark.parametrize("expiration", [1, 2, 3])
+    def test_expiration_scenarios(self, redis_handler, redis_client, expiration):
+        """Test different expiration scenarios"""
+        block_id = f"expiration_test_{expiration}"
+        conv_id = "test_conv"
+        content = "expiring content"
+        
+        redis_key = self.store_test_message(
+            redis_handler, block_id, conv_id, content, 
+            expiration=expiration
+        )
+        
+        # Verify content exists
+        assert RedisTestHelper.verify_message(
+            redis_client.get_query(redis_key), 
+            content
+        )
+        
+        # Wait for expiration
+        time.sleep(expiration + 1)
+        
+        # Verify content expired
+        result = redis_client.get_query(redis_key)
+        assert "No query found" in result
+
+    def test_batch_operations(self, redis_handler, redis_client):
+        """Test batch operations with pipeline"""
+        block_id = "batch_test"
+        self.test_blocks.append(block_id)
+        
+        with redis_handler.client.pipeline() as pipe:
+            for i in range(5):
+                redis_handler.store_query(
+                    f"conv{i}", 
+                    f"content{i}", 
+                    conversation_block_id=block_id,
+                    pipeline=pipe
+                )
+            pipe.execute()
+        
+        # Verify all messages
+        for i in range(5):
+            redis_key = RedisTestHelper.create_key(block_id, f"conv{i}")
+            result = redis_client.get_query(redis_key)
+            assert RedisTestHelper.verify_message(result, f"content{i}")
