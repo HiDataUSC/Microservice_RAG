@@ -37,10 +37,10 @@ class DocumentService:
         """Handles document retrieval based on a query."""
         retriever = Retriever()
         try:
-            node_id = kwargs.get('node_id', None)
+            conversation_block_id = kwargs.get('node_id', None)
             content_keys = kwargs.get('content_keys', None)
             sender_id = USER_NAME
-            redis_key = retriever.store_query_in_redis(query, sender_id=sender_id, conversation_block_id=node_id)
+            redis_key = retriever.store_query_in_redis(query, conversation_block_id, sender_id=sender_id)
             if content_keys:
                 docs = retriever.retrieve(query, content_keys=content_keys)
                 doc = next(iter(docs), None)
@@ -50,13 +50,14 @@ class DocumentService:
                 generator = Generation('RAG')
                 doc_id = doc.metadata.get('doc_id')
                 retriever.full_document(doc_id, self.dst_folder)
-                answer = generator.generate_answer(redis_key, self.dst_folder)
+                answer = generator.generate_answer(redis_key, directory_path=self.dst_folder)
                 return answer, 200
             else:
                 generator = Generation('GPT')
-                answer = generator.generate_answer(redis_key, None)
+                answer = generator.generate_answer(redis_key)
                 return answer, 200
         except Exception as e:
+            print(f"{e}")
             return f"Error retrieving document: {e}", 500
         finally:
             self.cleanup()

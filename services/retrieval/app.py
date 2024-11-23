@@ -10,7 +10,7 @@ class Retriever:
         self.vector_store = VectorStore()
         self.s3_handler = S3Handler()
 
-    def store_query_in_redis(self, query, **kwargs):
+    def store_query_in_redis(self, query, conversation_block_id,**kwargs):
         """
         Store the query in Redis.
         
@@ -18,7 +18,7 @@ class Retriever:
         :param conv_id: The conversation ID to store the query under.
         :param sender_id: The sender ID to store the query under.
         """
-        return self.redis_handler.store_query(query, **kwargs)
+        return self.redis_handler.store_query(query, conversation_block_id,**kwargs)
 
     def retrieve(self, query, content_keys = None):
         """
