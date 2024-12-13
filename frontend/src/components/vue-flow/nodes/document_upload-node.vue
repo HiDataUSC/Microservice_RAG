@@ -11,7 +11,7 @@ import axios from 'axios'
 import { LLMNodeData, LLMNodeEvents } from './index'
 
 import type { NodeProps } from '@vue-flow/core'
-import {file_names, documents, BASE_URL} from '@/main.js'
+import {file_names, documents, BASE_URL} from '@/store.ts'
 
 const props = defineProps<NodeProps<LLMNodeData, LLMNodeEvents>>()
 

@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Toaster, useToast } from '@/components/ui/toast'
 import axios from 'axios'
 
-import {file_names, documents, BASE_URL} from './main.js'
+import { file_names, documents, BASE_URL } from './store.ts'
 
 const projects = ref([
   { id: 'project-1', name: 'Project 1', flowchartData: [] },
