@@ -7,7 +7,7 @@ from flask_cors import CORS
 from services.file_management.serviceManager import RedisManager
 from services.indexing.app import Preprocessor
 from services.retrieval.app import Retriever
-from services.generation.app import Generation
+from services.Text_Generation.app import Generation
 from services.common.AWS_handler import S3Handler
 
 from services.common.config import LOCAL_FOLDER, USER_NAME

@@ -5,7 +5,7 @@ import shutil
 from services.file_management.serviceManager import RedisManager
 from services.indexing.app import Preprocessor
 from services.retrieval.app import Retriever
-from services.generation.app import Generation
+from services.Text_Generation.app import Generation
 
 
 class Main:

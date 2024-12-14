@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock, ANY
-from services.generation.llm_handler import LLMHandler
+from services.Text_Generation.llm_handler import LLMHandler
 
 class ParamMatcher:
     """Custom parameter matcher for testing"""

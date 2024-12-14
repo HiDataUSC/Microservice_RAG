@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock
-from services.generation.app import Generation
+from services.Text_Generation.app import Generation
 
 class TestHelper:
     """Helper class for testing"""

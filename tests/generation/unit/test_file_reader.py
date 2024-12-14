@@ -2,7 +2,7 @@ import os
 import tempfile
 import pytest
 from docx import Document
-from services.generation.file_reader import FileReader
+from services.Text_Generation.file_reader import FileReader
 
 @pytest.fixture
 def setup_test_files(tmpdir):
