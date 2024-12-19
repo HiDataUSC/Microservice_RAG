@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted} from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { PlusIcon, GhostIcon } from 'lucide-vue-next'
 import { useVueFlow } from '@vue-flow/core'
 import { useClipboard, useEventBus } from '@vueuse/core'
@@ -11,50 +11,25 @@ import { Button } from '@/components/ui/button'
 import { Toaster, useToast } from '@/components/ui/toast'
 import axios from 'axios'
 
-import { file_names, documents, BASE_URL } from './store.ts'
-
-const projects = ref([
-  { id: 'project-1', name: 'Project 1', flowchartData: [] },
-  { id: 'project-2', name: 'Project 2', flowchartData: [] }
-])
+import { 
+  file_names, 
+  documents, 
+  BASE_URL, 
+  workspace_id, 
+  Loader, 
+  blockChats, 
+  Save_Workspace_API,
+  currentProject,
+  projects
+} from './store.ts'
 
 const defaultData = {
-  nodes: [
-    { 
-      id: "1", 
-      type: "document_upload", 
-      initialized: false, 
-      position: { x: 0, y: 400 }, 
-      data: {
-        selectedFiles: []
-      }, 
-      label: "document_upload" 
-    },
-    { 
-      id: "2", 
-      type: "conversation", 
-      initialized: false, 
-      position: { x: 800, y: 400 }, 
-      data: {
-        messages: [],
-        systemPrompt: "",
-        temperature: 0.7
-      }, 
-      label: "conversation" 
-    }
-  ],
-  edges: [
-    {
-      id: 'e1-2',
-      source: '1',
-      target: '2'
-    }
-  ],
+  nodes: [],
+  edges: [],
   position: [0, 0],
   zoom: 1,
   viewport: { x: 0, y: 0, zoom: 1 }
 }
-
 
 const selectedProjectId = ref('project-1')
 const currentProjectData = ref(defaultData)
@@ -112,7 +87,7 @@ function loadProjectData(projectId: string) {
   return projectData ? JSON.parse(projectData) : defaultData
 }
 
-const { toObject } = useVueFlow()
+const { toObject, onNodeDragStop, onEdgesChange, onNodesChange } = useVueFlow()
 const { copy } = useClipboard()
 const { toast } = useToast()
 
@@ -131,19 +106,176 @@ function handleClickPublishBtn() {
   })
 }
 
-onMounted(async () => {
-  fetchFileList();
-
+const loadChatHistory = async () => {
   try {
-    const response = await axios.post(`${BASE_URL}/download_vectorized_db`)
-    if (response.status === 200) {
-    } else {
-      console.error('Error downloading files:', response.data.error)
+    const response = await axios.post(Loader, {
+      workspace_id: workspace_id.value
+    })
+    
+    if (response.data && response.data.body) {
+      const parsedData = JSON.parse(response.data.body)
+      blockChats.value = parsedData
     }
   } catch (error) {
-    console.error('Error making request:', error)
+    console.error('Error loading chat history:', error)
+  }
+}
+
+const loadWorkspaceData = async () => {
+  try {
+    const response = await axios.post(Loader, {
+      workspace_id: workspace_id.value,
+      type: 'workspace'
+    })
+    
+    if (response.data && response.data.body) {
+      const workspaceData = JSON.parse(response.data.body)
+      
+      // 处理每个项目的数据
+      workspaceData.projects.forEach(project => {
+        // 将 flowchartData 保存到 localStorage
+        localStorage.setItem(
+          `project-${project.id}`, 
+          JSON.stringify(project.flowchartData)
+        )
+        
+        // 更新 projects 数组
+        const existingProjectIndex = projects.value.findIndex(p => p.id === project.id)
+        if (existingProjectIndex >= 0) {
+          projects.value[existingProjectIndex] = {
+            id: project.id,
+            name: `Project ${project.id}`,
+            flowchartData: project.flowchartData
+          }
+        } else {
+          projects.value.push({
+            id: project.id,
+            name: `Project ${project.id}`,
+            flowchartData: project.flowchartData
+          })
+        }
+      })
+
+      // 如果有项目，设置当前项目
+      if (projects.value.length > 0) {
+        // 如果当前有选中的项目，尝试保持选中状态
+        const currentProjectId = selectedProjectId.value
+        const projectToSelect = projects.value.find(p => p.id === currentProjectId) || projects.value[0]
+        
+        currentProject.value = projectToSelect
+        selectedProjectId.value = projectToSelect.id
+        
+        // 更新当前项目数据
+        const savedData = localStorage.getItem(`project-${projectToSelect.id}`)
+        if (savedData) {
+          currentProjectData.value = JSON.parse(savedData)
+        }
+      }
+    }
+  } catch (error) {
+    toast({
+      title: 'Error',
+      description: 'Failed to load workspace data'
+    })
+  }
+}
+
+// 修改自动保存间隔为30秒
+let autoSaveInterval: number | null = null
+
+// 添加加载状态标志
+const isLoading = ref(true)
+
+// 修改加载函数
+const loadWorkspaceAndChat = async () => {
+  try {
+    isLoading.value = true
+    
+    // 先加载工作区数据
+    await loadWorkspaceData()
+    
+    // 然后加载聊天历史
+    await loadChatHistory()
+    
+  } catch (error) {
+    console.error('Error loading data:', error)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// 修改 onMounted
+onMounted(async () => {
+  // 按顺序加载数据
+  await loadWorkspaceAndChat()
+  
+  // 设置自动保存定时器（30秒）
+  autoSaveInterval = window.setInterval(() => {
+    if (currentProject.value) {
+      saveWorkspaceData(currentProject.value.id)
+    }
+  }, 30000)
+})
+
+// 添加 onUnmounted 钩子清理定时器
+onUnmounted(() => {
+  if (autoSaveInterval) {
+    clearInterval(autoSaveInterval)
   }
 })
+
+const switchProject = async (projectId: string) => {
+  // 保存当前项目
+  if (currentProject.value) {
+    const projectData = toObject()
+    localStorage.setItem(
+      `project-${currentProject.value.id}`, 
+      JSON.stringify(projectData)
+    )
+    
+    // 保存到服务器
+    await saveWorkspaceData(currentProject.value.id)
+  }
+  
+  // 切换到新项目
+  const newProject = projects.value.find(p => p.id === projectId)
+  if (newProject) {
+    currentProject.value = newProject
+    // 从 localStorage 加载项目数据
+    const savedData = localStorage.getItem(`project-${projectId}`)
+    if (savedData) {
+      newProject.flowchartData = JSON.parse(savedData)
+    }
+  }
+}
+
+const saveWorkspaceData = async (projectId: string, showToast: boolean = false) => {
+  try {
+    // 从 localStorage 获取数据
+    const savedData = localStorage.getItem(`project-${projectId}`)
+    if (!savedData) {
+      return
+    }
+
+    // 保存到服务器
+    const response = await axios.post(Save_Workspace_API, {
+      workspace_id: workspace_id.value,
+      project_id: projectId,
+      flowchart_data: JSON.parse(savedData)
+    })
+    
+    if (response.status === 200 && showToast) {
+      toast({
+        title: 'Workspace auto-saved successfully'
+      })
+    }
+  } catch (error) {
+    toast({
+      title: 'Error',
+      description: 'Failed to save project'
+    })
+  }
+}
 
 async function fetchFileList() {
   try {
@@ -231,6 +363,64 @@ async function handleUpload() {
     isUploading.value = false
   }
 }
+
+// 添加防抖函数
+function debounce(fn: Function, delay: number) {
+  let timer: number | null = null
+  return function (...args: any[]) {
+    if (timer) clearTimeout(timer)
+    timer = window.setTimeout(() => {
+      fn.apply(this, args)
+      timer = null
+    }, delay)
+  }
+}
+
+// 创建防抖版本的保存函数 - 不显示提示
+const debouncedSaveWorkspace = debounce((projectId: string) => {
+  saveWorkspaceData(projectId, false)  // 不显示提示
+}, 2000)
+
+// 修改 saveToLocalStorage 函数
+const saveToLocalStorage = () => {
+  if (currentProject.value) {
+    const flowchartData = toObject()
+    localStorage.setItem(
+      `project-${currentProject.value.id}`, 
+      JSON.stringify(flowchartData)
+    )
+    // 触发防抖保存
+    debouncedSaveWorkspace(currentProject.value.id)
+  }
+}
+
+// 监听节点拖动结束
+onNodeDragStop(() => {
+  saveToLocalStorage()
+})
+
+// 监听边的变化
+onEdgesChange(() => {
+  saveToLocalStorage()
+})
+
+// 监听节点变化
+onNodesChange(() => {
+  saveToLocalStorage()
+})
+
+// 修改 watch 以确保数据更新时重新渲染
+watch(
+  [currentProjectData, currentProject],
+  ([newProjectData, newCurrentProject]) => {
+    if (newProjectData) {
+      formattedData.value = formatDataForMainCanvas(newProjectData)
+    } else if (newCurrentProject?.flowchartData) {
+      formattedData.value = formatDataForMainCanvas(newCurrentProject.flowchartData)
+    }
+  },
+  { immediate: true, deep: true }
+)
 </script>
 
 <template>
@@ -352,7 +542,14 @@ async function handleUpload() {
           </tabs>
         </div>
         <div class="relative h-full flex-1 overflow-hidden">
-          <main-canvas :data="formattedData"/>
+          <template v-if="!isLoading">
+            <main-canvas :data="formattedData"/>
+          </template>
+          <template v-else>
+            <div class="flex h-full items-center justify-center">
+              <div class="text-gray-400">Loading...</div>
+            </div>
+          </template>
         </div>
         <div v-if="showDeleteConfirm" class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
           <div class="bg-white p-6 rounded shadow-md">

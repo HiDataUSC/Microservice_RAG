@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { MoreHorizontalIcon } from 'lucide-vue-next'
 import { Handle, Position, useVueFlow, useNode } from '@vue-flow/core'
 import { Menubar, MenubarMenu, MenubarTrigger, MenubarContent, MenubarItem } from '@/components/ui/menubar'
@@ -10,9 +10,9 @@ import axios from 'axios'
 import { LLMNodeData, LLMNodeEvents } from './index'
 
 import type { NodeProps } from '@vue-flow/core'
-import {file_names, documents, BASE_URL} from '@/main.js'
+import {file_names, documents, BASE_URL, Text_Generation_API, workspace_id, blockChats} from '@/store.ts'
 
-// Placeholder for conversation messages
+
 const messages = ref<{ id: number; text: string; isUser: boolean }[]>([])
 const userMessage = ref('')
 
@@ -25,6 +25,9 @@ const isEditTitle = ref(false)
 const node = useNode()
 const { removeNodes, nodes, addNodes, edges } = useVueFlow()
 
+// Define workspace_id and block_id
+const block_id = ref(node.id) // Use node ID as block ID
+
 // Send message and receive response
 async function sendMessage() {
   if (userMessage.value.trim() === '') return
@@ -34,30 +37,19 @@ async function sendMessage() {
   const userQuery = userMessage.value
   userMessage.value = ''
 
-  const connectedDocumentNodes = edges.value
-    .filter(edge => edge.source === node.id || edge.target === node.id)
-    .map(edge => {
-      const connectedNodeId = edge.source === node.id ? edge.target : edge.source
-      return nodes.value.find(n => n.id === connectedNodeId && n.type === 'document_upload')
-    })
-    .filter(Boolean)
-
-  const selectedDocuments = connectedDocumentNodes.flatMap(docNode => docNode.data?.selectedFiles || [])
-  const contentKeys = selectedDocuments.map(doc => (doc.content.Key).split('/').pop().split('.')[0])
-
-  const aiResponse = await getAiResponse(userQuery, contentKeys)
+  const aiResponse = await getAiResponse(userQuery)
   messages.value.push({ id: Date.now() + 1, text: aiResponse, isUser: false })
 }
 
 // Simulate AI response function (you can replace this with an actual API call)
-async function getAiResponse(userText: string, contentKeys: string[]): Promise<string> {
+async function getAiResponse(userText: string): Promise<string> {
   try {
-    const response = await axios.post(`${BASE_URL}/retrieve`, { 
+    const response = await axios.post(Text_Generation_API, { 
       query: userText,
-      content_keys: contentKeys,
-      node_id: node.id 
+      workspace_id: workspace_id.value,
+      block_id: block_id.value
     })
-    return response.data.answer || 'No answer was generated.'
+    return response.data.body || 'No answer was generated.'
   } catch (error) {
     console.error('Error fetching answer from server:', error)
     return 'Error: Unable to get response from server.'
@@ -86,6 +78,29 @@ function handleClickDuplicateBtn() {
 function handleScroll(event: WheelEvent) {
   event.stopPropagation();
 }
+
+// 从 blockChats 中加载消息
+const loadMessages = () => {
+  if (!Array.isArray(blockChats.value)) {
+    console.error('blockChats.value is not an array:', blockChats.value)
+    return
+  }
+
+  const blockChat = blockChats.value.find(chat => chat.blockId === node.id)
+  if (blockChat) {
+    messages.value = blockChat.messages
+  }
+}
+
+// 监听 blockChats 的变化
+watch(blockChats, () => {
+  loadMessages()
+}, { deep: true })
+
+// 组件挂载时加载消息
+onMounted(() => {
+  loadMessages()
+})
 </script>
 
 <template>

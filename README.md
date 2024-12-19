@@ -20,3 +20,8 @@ To run the website:
 
 manage vectorized db:
 `python -m services.common.vectorstore_action`
+
+To create lambda deployment package (layer):
+navigate to services folder for example `services/Text_Generation`
+follow the tutorial: https://www.youtube.com/watch?v=grRW1Z_C9vw
+
