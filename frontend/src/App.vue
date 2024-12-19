@@ -70,7 +70,7 @@ watch(
   { immediate: true }
 )
 
-function handleOnDragStart(event: DragEvent, nodeType: any) {
+function handleOnDragStart(event: DragEvent, nodeType: string) {
   if (event.dataTransfer) {
     event.dataTransfer.setData('application/vueflow', nodeType)
     event.dataTransfer.effectAllowed = 'move'
@@ -87,7 +87,7 @@ function loadProjectData(projectId: string) {
   return projectData ? JSON.parse(projectData) : defaultData
 }
 
-const { toObject, onNodeDragStop, onEdgesChange, onNodesChange } = useVueFlow()
+const { toObject, onNodeDragStop, onEdgesChange, onNodesChange, addNodes, project } = useVueFlow()
 const { copy } = useClipboard()
 const { toast } = useToast()
 
@@ -421,6 +421,66 @@ watch(
   },
   { immediate: true, deep: true }
 )
+
+// 添加新的函数来生成唯一的节点 ID
+function generateUniqueId(): string {
+  return Math.random().toString(36).substr(2, 9)
+}
+
+// 修改 onDrop 函数
+const onDrop = (event: DragEvent) => {
+  if (!event.dataTransfer) return
+
+  const type = event.dataTransfer.getData('application/vueflow')
+  
+  // 获取画布元素的位置
+  const bounds = (event.target as HTMLDivElement).getBoundingClientRect()
+  
+  // 使用 project 函数将鼠标位置转换为画布坐标
+  const position = project({
+    x: event.clientX - bounds.left,
+    y: event.clientY - bounds.top,
+  })
+
+  // 预设节点尺寸（根据实际节点大小调整）
+  const nodeWidth = 600  // conversation-node 的宽度
+  const nodeHeight = 300 // 预估高度
+
+  // 调整位置，使鼠标位置为节点中心
+  const adjustedPosition = {
+    x: position.x - nodeWidth / 2,
+    y: position.y - nodeHeight / 2
+  }
+
+  // 创建新节点
+  const newNode = {
+    id: generateUniqueId(),
+    type,
+    position: adjustedPosition,  // 使用调整后的位置
+    initialized: false,
+    data: type === 'conversation' 
+      ? {
+          messages: [],
+          systemPrompt: '',
+          temperature: 0.7
+        }
+      : {
+          selectedFiles: []
+        },
+    label: type
+  }
+
+  // 添加新节点
+  addNodes([newNode])
+}
+
+// 添加 onDragOver 处理函数
+const onDragOver = (event: DragEvent) => {
+  event.preventDefault()
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move'
+  }
+}
 </script>
 
 <template>
@@ -543,7 +603,11 @@ watch(
         </div>
         <div class="relative h-full flex-1 overflow-hidden">
           <template v-if="!isLoading">
-            <main-canvas :data="formattedData"/>
+            <main-canvas 
+              :data="formattedData"
+              @drop="onDrop"
+              @dragover="onDragOver"
+            />
           </template>
           <template v-else>
             <div class="flex h-full items-center justify-center">
