@@ -1,0 +1,25 @@
+services:
+  app:
+    build:
+      context: ../../  # Set build context to the root directory
+      dockerfile: ./tests/generation/Dockerfile  # Path to the Dockerfile
+    volumes:
+      - test:/app  # Mount the volume to /app in the app container
+    depends_on:
+      - redis
+    command: bash -c "sleep infinity"  # Keeps the app container running
+
+  redis:
+    image: "redis:latest"
+    ports:
+      - "6379:6379"  # Expose the default Redis port
+    volumes:
+      - test:/data  # Redis can use the same volume, but mount it to /data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  test:  # Declare the shared volume
