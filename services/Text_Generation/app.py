@@ -73,25 +73,44 @@ class ConversationHistory:
         return max_conversation_id + 1
 
 class Generation:
+    """
+    Main class for handling text generation and conversation management.
+    Coordinates between the LLM handler and conversation storage.
+    """
+    
     def __init__(self):
+        """Initialize with LLM handler for text generation"""
         self.llm_handler = LLMHandler()
 
-    def generate_answer(self, query: str, history: list) -> str:
+    def generate_answer(self, query: str, current_history: list = None, external_sources: list = None) -> str:
         """
-        Generate an answer based on the query and conversation history.
-        :param query: User's query
-        :param history: List of previous conversation messages
-        :return: Generated answer as a string
+        Generate an answer based on the query, current conversation history, and external knowledge sources.
+        
+        Args:
+            query: User's input query
+            current_history: List of messages from the current conversation
+            external_sources: List of external knowledge sources (e.g., other conversations, knowledge bases)
+            
+        Returns:
+            str: Generated answer from the LLM
         """
-        answer = self.llm_handler.generate_answer(question=query, history=history)
+        answer = self.llm_handler.generate_answer(
+            question=query,
+            current_history=current_history or [],
+            external_sources=external_sources or []
+        )
         return answer
 
     def create_messages(self, query: str, answer: str):
         """
-        Create messages for the conversation.
-        :param query: User's query
-        :param answer: Generated answer
-        :return: List of message dictionaries
+        Create message objects for storing the conversation.
+        
+        Args:
+            query: User's input query
+            answer: Generated answer from LLM
+            
+        Returns:
+            list: List of message dictionaries with metadata
         """
         return [
             {
@@ -110,8 +129,10 @@ class Generation:
 
     def create_metadata(self):
         """
-        Create metadata for the conversation.
-        :return: Metadata dictionary
+        Create metadata for the conversation record.
+        
+        Returns:
+            dict: Metadata including language, platform, and tags
         """
         return {
             'language': 'en',

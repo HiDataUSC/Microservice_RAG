@@ -73,10 +73,23 @@ async function sendMessage() {
 // Simulate AI response function (you can replace this with an actual API call)
 async function getAiResponse(userText: string): Promise<string> {
   try {
+    // 获取与当前节点相连的所有节点信息
+    const nodeConnections = edges.value
+      .filter(edge => edge.source === node.id || edge.target === node.id)
+      .map(edge => {
+        const connectedNodeId = edge.source === node.id ? edge.target : edge.source
+        const connectedNode = nodes.value.find(n => n.id === connectedNodeId)
+        return {
+          id: connectedNodeId,
+          type: connectedNode?.type || 'unknown'
+        }
+      })
+
     const response = await axios.post(Text_Generation_API, { 
       query: userText,
       workspace_id: workspace_id.value,
-      block_id: block_id.value
+      block_id: block_id.value,
+      connections: nodeConnections // 添加连接信息
     })
     return response.data.body || 'No answer was generated.'
   } catch (error) {
@@ -221,7 +234,7 @@ function handleDragStart(event: MouseEvent) {
     return
   }
 
-  // 如果不是在以上区域内的点击，让事件继续传播以支持连线功能
+  // 如果不是在以上区域内的点击，让事件继续传播以支持��线功能
   isInMessageArea.value = false
 }
 
