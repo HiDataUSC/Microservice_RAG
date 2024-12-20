@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { PlusIcon, GhostIcon } from 'lucide-vue-next'
 import { useVueFlow } from '@vue-flow/core'
 import { useClipboard, useEventBus } from '@vueuse/core'
+import { versionInfo } from '@/lib/version'
 
 import { Tabs, TabsTrigger, TabsContent, TabsList } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -52,7 +53,7 @@ function selectProject(projectId: string) {
   selectedProjectId.value = projectId
   const loadedData = loadProjectData(projectId)
   
-  // 只有当有实际数据时才更新
+  // 只有有实际数据时才更新
   if (loadedData && (loadedData.nodes?.length > 0 || loadedData.edges?.length > 0)) {
     currentProjectData.value = loadedData
   } else {
@@ -99,21 +100,6 @@ function loadProjectData(projectId: string) {
 
 const { toObject, onNodeDragStop, onEdgesChange, onNodesChange, addNodes, project, viewport, vueFlowRef } = useVueFlow()
 const { copy } = useClipboard()
-
-function handleClickGetData() {
-  copy(JSON.stringify(toObject())).then(() => {
-    toast({
-      title: 'copied success'
-    })
-  })
-}
-
-function handleClickPublishBtn() {
-  toast({
-    title: 'Save Data',
-    description: '1.valid data 2.fetch backend api to save result'
-  })
-}
 
 const loadChatHistory = async () => {
   try {
@@ -566,8 +552,10 @@ const onDragOver = (event: DragEvent) => {
           </div>
 
           <div class="flex gap-x-3">
-            <Button variant="outline" size="sm" class="text-blue-800" @click="handleClickGetData"> Get Data</Button>
-            <Button variant="default" size="sm" @click="handleClickPublishBtn"> Publish </Button>
+            <div class="flex flex-col items-end text-sm text-gray-500">
+              <span>{{ versionInfo.version }}</span>
+              <span>Last updated: {{ versionInfo.lastUpdated }}</span>
+            </div>
           </div>
         </div>
       </header>

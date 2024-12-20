@@ -16,6 +16,7 @@ import { Test_data } from '@/lib/constant'
 
 import type { Dimensions, Elements } from '@vue-flow/core'
 import type { Node, Edge } from '@vue-flow/core'
+import type { Edge as EdgeType } from '@vue-flow/core'
 
 const props = defineProps<{
   data: { nodes: Node[]; edges: Edge[]; position: [number, number]; zoom: number }
@@ -193,7 +194,7 @@ onConnect((params) => {
 const selectedEdge = ref(null)
 const edgeMenuPosition = ref({ x: 0, y: 0 })
 
-function updateEdgeMenuPosition(edge) {
+function updateEdgeMenuPosition(edge: EdgeType) {
   const sourceNode = nodes.value.find(n => n.id === edge.source)
   const targetNode = nodes.value.find(n => n.id === edge.target)
   
@@ -218,7 +219,7 @@ function updateEdgeMenuPosition(edge) {
 }
 
 // Handle edge click event
-function handleEdgeClick({ edge }) {
+function handleEdgeClick({ edge }: { edge: EdgeType }) {
   if (selectedEdge.value === edge) {
     selectedEdge.value = null
     return
@@ -335,42 +336,6 @@ function handlePaneClick() {
   .vue-flow__handle {
     width: 18px;
     height: 18px;
-  }
-
-  /* 添加自定义滚动条样式 */
-  &::after,
-  &::before {
-    content: '';
-    position: fixed;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 4px;
-    opacity: 0;
-    transition: opacity 0.3s;
-    z-index: 1000;
-  }
-
-  /* 垂直滚动条 */
-  &::after {
-    width: 8px;
-    height: 100px;
-    right: 4px;
-    top: 50%;
-    transform: translateY(-50%);
-  }
-
-  /* 水平滚动条 */
-  &::before {
-    height: 8px;
-    width: 100px;
-    bottom: 4px;
-    left: 50%;
-    transform: translateX(-50%);
-  }
-
-  /* 在平移时显示滚动条 */
-  &.panning::after,
-  &.panning::before {
-    opacity: 1;
   }
 }
 
