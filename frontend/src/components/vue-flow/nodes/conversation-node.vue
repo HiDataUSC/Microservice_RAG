@@ -176,24 +176,55 @@ function handleKeyPress(event: KeyboardEvent) {
 // 设置节点默认不可拖拽
 nodesDraggable.value = false
 
-// 添加拖拽处理函数
+// 修改拖拽处理函数
 function handleDragStart(event: MouseEvent) {
-  // 检查点击的元素是否在 drag-handle 区域内
-  const target = event.target as HTMLElement
-  const dragHandle = target.closest('.drag-handle')
+  // 检查点击的元素是否在消息区域内
+  const messageArea = (event.target as HTMLElement).closest('.message-display-area')
+  if (messageArea) {
+    // 阻止事件冒泡，防止触发画布拖拽
+    event.stopPropagation()
+    isInMessageArea.value = true
+    return
+  }
   
+  // 检查点击的元素是否在 drag-handle 区域内
+  const dragHandle = (event.target as HTMLElement).closest('.drag-handle')
   if (dragHandle) {
     nodesDraggable.value = true
   }
 }
 
-function handleDragEnd() {
+function handleDragEnd(event: MouseEvent) {
+  // 阻止事件冒泡
+  event.stopPropagation()
+  isInMessageArea.value = false
   nodesDraggable.value = false
 }
+
+// 添加鼠标离开消息区域的处理
+function handleMouseLeave(event: MouseEvent) {
+  event.stopPropagation()
+  isInMessageArea.value = false
+}
+
+// 添加文本选择开始处理
+function handleSelectStart(event: Event) {
+  if (isInMessageArea.value) {
+    event.stopPropagation()
+  }
+}
+
+// 添加状态来跟踪是否在消息区域内
+const isInMessageArea = ref(false)
 </script>
 
 <template>
-  <div :id="node.id" class="rounded-sm border border-gray-200 bg-white p-3 shadow-md fixed-width">
+  <div 
+    :id="node.id" 
+    class="rounded-sm border border-gray-200 bg-white p-3 shadow-md fixed-width"
+    @selectstart="handleSelectStart"
+    @dragstart.prevent
+  >
     <Handle type="target" :position="Position.Left" />
     <div class="flex flex-col gap-y-4">
       <div class="drag-handle">
@@ -229,17 +260,22 @@ function handleDragEnd() {
         <div
           class="message-display-area h-40 overflow-y-auto overflow-x-hidden border-t border-b border-gray-200 py-2"
           @wheel="handleScroll"
+          @mouseleave="handleMouseLeave"
+          @mouseenter="isInMessageArea = true"
+          @mousedown.stop
+          @dragstart.prevent
         >
           <div
             v-for="message in messages"
             :key="message.id"
             :class="{ 'flex justify-end': message.isUser, 'flex justify-start': !message.isUser }"
             class="message-bubble"
+            @dragstart.prevent
           >
             <div
               class="p-3 rounded-lg inline-block max-w-[85%]"
               :class="message.isUser ? 'bg-blue-200 user-message' : 'bg-gray-200 ai-message'"
-              style="white-space: pre-wrap; word-break: break-word;"
+              style="white-space: pre-wrap; word-break: break-word; user-select: text;"
             >
               {{ message.text }}
             </div>
@@ -252,6 +288,10 @@ function handleDragEnd() {
             placeholder="Type your message... (Press Enter to send)"
             class="flex-1 min-h-[40px] max-h-[120px] p-2 rounded-md border border-input bg-background resize-none overflow-y-auto"
             @keypress="handleKeyPress"
+            @mousedown.stop
+            @dragstart.prevent
+            @mouseenter="isInMessageArea = true"
+            @mouseleave="handleMouseLeave"
           />
           <Button @click="sendMessage">Send</Button>
         </div>
@@ -286,6 +326,13 @@ function handleDragEnd() {
 .message-display-area {
   max-height: 200px;
   overflow-y: auto;
+  user-select: text;
+  position: relative;
+  z-index: 1;
+  pointer-events: auto;
+  /* 确保消息区域可以独立处理事件 */
+  isolation: isolate;
+  -webkit-user-drag: none;
 }
 
 .message-bubble {
@@ -293,21 +340,34 @@ function handleDragEnd() {
   padding: 0 12px;
   display: flex;
   text-align: left;
+  user-select: text;
+  pointer-events: auto;
+  -webkit-user-drag: none;
 }
 
 .user-message {
   background-color: #e3f2fd;
   border: 1px solid #bbdefb;
+  cursor: text;
+  position: relative;
+  z-index: 2;
 }
 
 .ai-message {
   background-color: #f5f5f5;
   border: 1px solid #e0e0e0;
+  cursor: text;
+  position: relative;
+  z-index: 2;
 }
 
 textarea {
   font-family: inherit;
   line-height: 1.5;
+  position: relative;
+  z-index: 2;
+  user-select: text;
+  -webkit-user-drag: none;
   &:focus {
     outline: none;
     border-color: hsl(var(--primary));
@@ -319,17 +379,31 @@ textarea {
   cursor: move;
   padding: 8px;
   width: 100%;
-  user-select: none; /* 防止文本选择影响拖拽 */
+  user-select: none;
+  position: relative;
+  z-index: 3;
+  pointer-events: auto;
+  /* 确保拖拽句柄的事件不会影响其他区域 */
+  isolation: isolate;
 }
 
 .message-display-area,
 .input-area {
   cursor: default;
-  user-select: text; /* 允许文本选择 */
+  user-select: text;
 }
 
 /* 添加防止拖拽时选中文本 */
 .drag-handle * {
   user-select: none;
+}
+
+.input-area {
+  cursor: default;
+  user-select: text;
+  position: relative;
+  z-index: 2;
+  isolation: isolate;
+  pointer-events: auto;
 }
 </style>
