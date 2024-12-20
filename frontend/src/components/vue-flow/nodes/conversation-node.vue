@@ -100,21 +100,20 @@ async function handleClickDeleteBtn() {
       description: 'The conversation block has been removed.'
     })
     
-    // 在后台删除历史记录
+    // 在后台删除历史记录，添加 block_type 参数
     const response = await axios.post(Block_Action_API, {
       action_type: 'delete',
       workspace_id: workspace_id.value,
-      block_id: block_id.value
+      block_id: block_id.value,
+      block_type: 'conversation' // 添加 block_type 标识
     })
     
     if (response.status === 200) {
-      // 删除成功的提示
       toast({
         title: 'Success',
         description: 'Conversation history has been deleted'
       })
     } else {
-      // 如果删除历史记录失败，提示用户但不恢复节点
       toast({
         title: 'Warning',
         description: 'Block removed but there was an issue deleting the conversation history',
@@ -122,7 +121,6 @@ async function handleClickDeleteBtn() {
       })
     }
   } catch (error) {
-    // 如果发生错误，提示用户但不恢复节点
     toast({
       title: 'Error',
       description: 'Block removed but failed to delete conversation history',
