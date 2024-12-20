@@ -29,6 +29,9 @@ const { removeNodes, nodes, addNodes, edges, nodesDraggable } = useVueFlow()
 // Define workspace_id and block_id
 const block_id = ref(node.id) // Use node ID as block ID
 
+// 在 script setup 部分添加状态
+const isGenerating = ref(false)
+
 // Send message and receive response
 async function sendMessage() {
   if (userMessage.value.trim() === '') return
@@ -41,11 +44,30 @@ async function sendMessage() {
   const userQuery = userMessage.value
   userMessage.value = ''
 
-  const aiResponse = await getAiResponse(userQuery)
-  messages.value.push({ id: Date.now() + 1, text: aiResponse, isUser: false })
-  
-  // 在添加 AI 响应后滚动到底部
+  // 添加一个临时的 AI 消息，显示加载状态
+  const tempMessageId = Date.now() + 1
+  messages.value.push({ id: tempMessageId, text: '...', isUser: false })
   nextTick(() => scrollToBottom())
+  
+  isGenerating.value = true
+  
+  try {
+    const aiResponse = await getAiResponse(userQuery)
+    // 更新临时消息的内容
+    const messageIndex = messages.value.findIndex(m => m.id === tempMessageId)
+    if (messageIndex !== -1) {
+      messages.value[messageIndex].text = aiResponse
+    }
+  } catch (error) {
+    // 如果发生错误，更新临时消息显示错误信息
+    const messageIndex = messages.value.findIndex(m => m.id === tempMessageId)
+    if (messageIndex !== -1) {
+      messages.value[messageIndex].text = 'Error: Unable to get response from server.'
+    }
+  } finally {
+    isGenerating.value = false
+    nextTick(() => scrollToBottom())
+  }
 }
 
 // Simulate AI response function (you can replace this with an actual API call)
@@ -144,7 +166,7 @@ const loadMessages = () => {
   }
 }
 
-// 监听 blockChats 的��化
+// 监听 blockChats 的化
 watch(blockChats, () => {
   loadMessages()
 }, { deep: true })
@@ -293,7 +315,14 @@ function scrollToBottom() {
               :class="message.isUser ? 'bg-blue-200 user-message' : 'bg-gray-200 ai-message'"
               style="white-space: pre-wrap; word-break: break-word; user-select: text;"
             >
-              {{ message.text }}
+              <template v-if="!message.isUser && message.text === '...'">
+                <span class="typing-dots">
+                  <span>.</span><span>.</span><span>.</span>
+                </span>
+              </template>
+              <template v-else>
+                {{ message.text }}
+              </template>
             </div>
           </div>
         </div>
@@ -421,5 +450,36 @@ textarea {
   z-index: 2;
   isolation: isolate;
   pointer-events: auto;
+}
+
+.typing-dots {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+}
+
+.typing-dots span {
+  animation: typingDot 1.4s infinite;
+  font-size: 20px;
+  line-height: 20px;
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typingDot {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.3;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
 }
 </style>
