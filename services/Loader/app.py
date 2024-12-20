@@ -68,30 +68,19 @@ class WorkspaceHandler(DynamoDBMixin):
             KeyConditionExpression=Key('workspace_id').eq(workspace_id)
         )
         
-        return self._process_workspace_data(response.get('Items', []))
-    
-    def _process_workspace_data(self, items: list) -> dict:
-        """处理工作区数据"""
+        # 直接返回原始数据，只做必要的 Decimal 转换
         workspace_data = {
-            'projects': [],
-            'settings': {},
-            'metadata': {}
+            'projects': []
         }
         
-        for item in items:
-            if 'project_id' in item:
+        for item in response.get('Items', []):
+            if 'project_id' in item and 'flowchart_data' in item:
                 project = {
                     'id': item['project_id'],
-                    'flowchartData': self._decimal_to_float(item.get('flowchart_data', {})),
-                    'updated_at': item.get('updated_at', '')
+                    'flowchartData': self._decimal_to_float(item['flowchart_data'])
                 }
                 workspace_data['projects'].append(project)
-            elif 'settings' in item:
-                workspace_data['settings'] = item['settings']
-            elif 'metadata' in item:
-                workspace_data['metadata'] = item['metadata']
         
-        workspace_data['projects'].sort(key=lambda x: x['updated_at'], reverse=True)
         return workspace_data
     
     def _decimal_to_float(self, obj):
@@ -102,4 +91,4 @@ class WorkspaceHandler(DynamoDBMixin):
             return {k: self._decimal_to_float(v) for k, v in obj.items()}
         elif isinstance(obj, list):
             return [self._decimal_to_float(v) for v in obj]
-        return obj 
+        return obj

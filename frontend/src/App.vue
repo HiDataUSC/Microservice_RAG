@@ -23,42 +23,53 @@ import {
   projects
 } from './store.ts'
 
-const defaultData = {
+import { WorkspaceManager } from '@/lib/workspace-manager'
+
+// 1. 创建 WorkspaceManager 实例（移到最前面）
+const { toast } = useToast()
+const workspaceManager = new WorkspaceManager(workspace_id.value, currentProject, toast)
+
+// 2. 默认数据现在从 WorkspaceManager 获取
+const defaultData = workspaceManager.defaultData
+
+const selectedProjectId = ref('')
+const currentProjectData = ref({
   nodes: [],
   edges: [],
   position: [0, 0],
   zoom: 1,
   viewport: { x: 0, y: 0, zoom: 1 }
-}
-
-const selectedProjectId = ref('project-1')
-const currentProjectData = ref(defaultData)
+})
 
 function selectProject(projectId: string) {
-  saveProjectData(selectedProjectId.value)
+  if (!projectId) return
+  
+  // 保存当前项目
+  if (currentProject.value) {
+    saveProjectData(selectedProjectId.value)
+  }
+  
   selectedProjectId.value = projectId
-  currentProjectData.value = loadProjectData(projectId) || defaultData
+  const loadedData = loadProjectData(projectId)
+  
+  // 只有当有实际数据时才更新
+  if (loadedData && (loadedData.nodes?.length > 0 || loadedData.edges?.length > 0)) {
+    currentProjectData.value = loadedData
+  } else {
+    currentProjectData.value = {
+      nodes: [],
+      edges: [],
+      position: [0, 0],
+      zoom: 1,
+      viewport: { x: 0, y: 0, zoom: 1 }
+    }
+  }
 }
 
 function formatDataForMainCanvas(data) {
-  if (!data || !data.nodes) {
-    data = defaultData;
-  }
-
-  return {
-    nodes: data.nodes.map((node) => ({
-      id: node.id,
-      type: node.type,
-      position: node.position,
-      label: node.label,
-      initialized: node.initialized,
-      data: node.data || {}
-    })),
-    edges: data.edges || [],
-    position: data.position || [0, 0],
-    zoom: data.zoom || 1
-  }
+  return workspaceManager.formatDataForMainCanvas(data)
 }
+
 const formattedData = ref(formatDataForMainCanvas(currentProjectData.value))
 watch(
   currentProjectData,
@@ -79,17 +90,15 @@ function handleOnDragStart(event: DragEvent, nodeType: string) {
 
 function saveProjectData(projectId: string) {
   const projectData = toObject()
-  localStorage.setItem(`project-${projectId}`, JSON.stringify(projectData))
+  workspaceManager.saveToLocalStorage(projectId, projectData)
 }
 
 function loadProjectData(projectId: string) {
-  const projectData = localStorage.getItem(`project-${projectId}`)
-  return projectData ? JSON.parse(projectData) : defaultData
+  return workspaceManager.loadFromLocalStorage(projectId)
 }
 
 const { toObject, onNodeDragStop, onEdgesChange, onNodesChange, addNodes, project } = useVueFlow()
 const { copy } = useClipboard()
-const { toast } = useToast()
 
 function handleClickGetData() {
   copy(JSON.stringify(toObject())).then(() => {
@@ -131,44 +140,96 @@ const loadWorkspaceData = async () => {
     if (response.data && response.data.body) {
       const workspaceData = JSON.parse(response.data.body)
       
-      // 处理每个项目的数据
-      workspaceData.projects.forEach(project => {
-        // 将 flowchartData 保存到 localStorage
+      // 清空现有项目列表
+      projects.value = []
+      
+      // 清空 localStorage 中的所有项目数据
+      const keysToRemove = Object.keys(localStorage).filter(key => key.startsWith('project-'))
+      keysToRemove.forEach(key => localStorage.removeItem(key))
+      
+      // 如果没有项目，创建一个空项目并保存基本视图状态
+      if (!workspaceData.projects || workspaceData.projects.length === 0) {
+        const emptyProject = {
+          id: 'project-1',
+          flowchartData: {
+            nodes: [],
+            edges: [],
+            position: [0, 0],
+            zoom: 1,
+            viewport: { x: 0, y: 0, zoom: 1 }
+          }
+        }
+        
         localStorage.setItem(
-          `project-${project.id}`, 
-          JSON.stringify(project.flowchartData)
+          `project-${emptyProject.id}`, 
+          JSON.stringify(emptyProject.flowchartData)
         )
         
-        // 更新 projects 数组
-        const existingProjectIndex = projects.value.findIndex(p => p.id === project.id)
-        if (existingProjectIndex >= 0) {
-          projects.value[existingProjectIndex] = {
-            id: project.id,
-            name: `Project ${project.id}`,
-            flowchartData: project.flowchartData
+        projects.value.push({
+          id: emptyProject.id,
+          name: `Project ${emptyProject.id}`,
+          flowchartData: emptyProject.flowchartData
+        })
+      } else {
+        // 处理现有项目数据
+        workspaceData.projects.forEach(project => {
+          // 确保 flowchartData 存在，如果不存在则使用空的数据结构
+          const flowchartData = project.flowchartData || {
+            nodes: [],
+            edges: [],
+            position: [0, 0],
+            zoom: 1,
+            viewport: { x: 0, y: 0, zoom: 1 }
           }
-        } else {
+          
+          // 始终保存到 localStorage，无论是否有实际数据
+          localStorage.setItem(
+            `project-${project.id}`, 
+            JSON.stringify(flowchartData)
+          )
+          
+          // 更新 projects 数组
           projects.value.push({
             id: project.id,
             name: `Project ${project.id}`,
-            flowchartData: project.flowchartData
+            flowchartData: flowchartData
           })
-        }
-      })
+        })
+      }
 
       // 如果有项目，设置当前项目
       if (projects.value.length > 0) {
-        // 如果当前有选中的项目，尝试保持选中状态
         const currentProjectId = selectedProjectId.value
         const projectToSelect = projects.value.find(p => p.id === currentProjectId) || projects.value[0]
         
         currentProject.value = projectToSelect
         selectedProjectId.value = projectToSelect.id
         
-        // 更新当前项目数据
         const savedData = localStorage.getItem(`project-${projectToSelect.id}`)
         if (savedData) {
-          currentProjectData.value = JSON.parse(savedData)
+          const parsedData = JSON.parse(savedData)
+          // 只有当有实际数据时才使用
+          if (parsedData.nodes?.length > 0 || parsedData.edges?.length > 0) {
+            currentProjectData.value = parsedData
+          } else {
+            currentProjectData.value = {
+              nodes: [],
+              edges: [],
+              position: [0, 0],
+              zoom: 1,
+              viewport: { x: 0, y: 0, zoom: 1 }
+            }
+          }
+        }
+      } else {
+        currentProject.value = null
+        selectedProjectId.value = ''
+        currentProjectData.value = {
+          nodes: [],
+          edges: [],
+          position: [0, 0],
+          zoom: 1,
+          viewport: { x: 0, y: 0, zoom: 1 }
         }
       }
     }
@@ -186,6 +247,9 @@ let autoSaveInterval: number | null = null
 // 添加加载状态标志
 const isLoading = ref(true)
 
+// 添加初始化标志
+const initialized = ref(false)
+
 // 修改加载函数
 const loadWorkspaceAndChat = async () => {
   try {
@@ -197,8 +261,10 @@ const loadWorkspaceAndChat = async () => {
     // 然后加载聊天历史
     await loadChatHistory()
     
+    // 标记初始化完成
+    initialized.value = true
+    
   } catch (error) {
-    console.error('Error loading data:', error)
   } finally {
     isLoading.value = false
   }
@@ -206,22 +272,26 @@ const loadWorkspaceAndChat = async () => {
 
 // 修改 onMounted
 onMounted(async () => {
-  // 按顺序加载数据
-  await loadWorkspaceAndChat()
-  
-  // 设置自动保存定时器（30秒）
-  autoSaveInterval = window.setInterval(() => {
-    if (currentProject.value) {
-      saveWorkspaceData(currentProject.value.id)
-    }
-  }, 30000)
+  // 确保在页面加载时运行 Loader API
+  if (!initialized.value) {
+    await loadWorkspaceAndChat()
+  }
 })
 
-// 添加 onUnmounted 钩子清理定时器
+// 添加页面刷新监听
+window.addEventListener('load', async () => {
+  if (!initialized.value) {
+    await loadWorkspaceAndChat()
+  }
+})
+
+// 在组件卸载时清理
 onUnmounted(() => {
   if (autoSaveInterval) {
     clearInterval(autoSaveInterval)
   }
+  workspaceManager.cleanup()
+  window.removeEventListener('load', loadWorkspaceAndChat)
 })
 
 const switchProject = async (projectId: string) => {
@@ -379,18 +449,13 @@ function debounce(fn: Function, delay: number) {
 // 创建防抖版本的保存函数 - 不显示提示
 const debouncedSaveWorkspace = debounce((projectId: string) => {
   saveWorkspaceData(projectId, false)  // 不显示提示
-}, 2000)
+}, 50)
 
 // 修改 saveToLocalStorage 函数
 const saveToLocalStorage = () => {
   if (currentProject.value) {
     const flowchartData = toObject()
-    localStorage.setItem(
-      `project-${currentProject.value.id}`, 
-      JSON.stringify(flowchartData)
-    )
-    // 触发防抖保存
-    debouncedSaveWorkspace(currentProject.value.id)
+    workspaceManager.saveToLocalStorage(currentProject.value.id, flowchartData)
   }
 }
 
@@ -442,7 +507,7 @@ const onDrop = (event: DragEvent) => {
     y: event.clientY - bounds.top,
   })
 
-  // 预设节点尺寸（根据实际节点大小调整）
+  // 预设节点尺寸（根据实际节点大小整）
   const nodeWidth = 600  // conversation-node 的宽度
   const nodeHeight = 300 // 预估高度
 
