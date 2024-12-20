@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
+import { ref, computed, onMounted, watch, onUnmounted, nextTick } from 'vue'
 import { MoreHorizontalIcon } from 'lucide-vue-next'
 import { Handle, Position, useVueFlow, useNode } from '@vue-flow/core'
 import { Menubar, MenubarMenu, MenubarTrigger, MenubarContent, MenubarItem } from '@/components/ui/menubar'
@@ -34,12 +34,18 @@ async function sendMessage() {
   if (userMessage.value.trim() === '') return
   
   messages.value.push({ id: Date.now(), text: userMessage.value, isUser: true })
+  
+  // 在添加用户消息后滚动到底部
+  nextTick(() => scrollToBottom())
 
   const userQuery = userMessage.value
   userMessage.value = ''
 
   const aiResponse = await getAiResponse(userQuery)
   messages.value.push({ id: Date.now() + 1, text: aiResponse, isUser: false })
+  
+  // 在添加 AI 响应后滚动到底部
+  nextTick(() => scrollToBottom())
 }
 
 // Simulate AI response function (you can replace this with an actual API call)
@@ -133,10 +139,12 @@ const loadMessages = () => {
   const blockChat = blockChats.value.find(chat => chat.blockId === node.id)
   if (blockChat) {
     messages.value = blockChat.messages
+    // 在加载消息后滚动到底部
+    nextTick(() => scrollToBottom())
   }
 }
 
-// 监听 blockChats 的变化
+// 监听 blockChats 的��化
 watch(blockChats, () => {
   loadMessages()
 }, { deep: true })
@@ -216,6 +224,14 @@ function handleSelectStart(event: Event) {
 
 // 添加状态来跟踪是否在消息区域内
 const isInMessageArea = ref(false)
+
+// 在 script setup 部分添加一个新的函数
+function scrollToBottom() {
+  const messageArea = document.querySelector(`#${node.id} .message-display-area`)
+  if (messageArea) {
+    messageArea.scrollTop = messageArea.scrollHeight
+  }
+}
 </script>
 
 <template>
