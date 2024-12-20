@@ -97,7 +97,7 @@ function loadProjectData(projectId: string) {
   return workspaceManager.loadFromLocalStorage(projectId)
 }
 
-const { toObject, onNodeDragStop, onEdgesChange, onNodesChange, addNodes, project } = useVueFlow()
+const { toObject, onNodeDragStop, onEdgesChange, onNodesChange, addNodes, project, viewport, vueFlowRef } = useVueFlow()
 const { copy } = useClipboard()
 
 function handleClickGetData() {
@@ -499,29 +499,30 @@ const onDrop = (event: DragEvent) => {
   const type = event.dataTransfer.getData('application/vueflow')
   
   // 获取画布元素的位置
-  const bounds = (event.target as HTMLDivElement).getBoundingClientRect()
+  const bounds = vueFlowRef.value?.getBoundingClientRect()
+  if (!bounds) return
   
-  // 使用 project 函数将鼠标位置转换为画布坐标
+  // 使用 project 函数将鼠标位置转换为画布坐标，考虑画布的变换
   const position = project({
     x: event.clientX - bounds.left,
     y: event.clientY - bounds.top,
   })
 
-  // 预设节点尺寸（根据实际节点大小整）
-  const nodeWidth = 600  // conversation-node 的宽度
-  const nodeHeight = 300 // 预估高度
+  // 预设节点尺寸
+  const nodeWidth = 600
+  const nodeHeight = 300
 
-  // 调整位置，使鼠标位置为节点中心
+  // 调整位置，考虑画布的缩放
   const adjustedPosition = {
-    x: position.x - nodeWidth / 2,
-    y: position.y - nodeHeight / 2
+    x: position.x - (nodeWidth / 2 / viewport.value.zoom),
+    y: position.y - (nodeHeight / 2 / viewport.value.zoom)
   }
 
   // 创建新节点
   const newNode = {
     id: generateUniqueId(),
     type,
-    position: adjustedPosition,  // 使用调整后的位置
+    position: adjustedPosition,
     initialized: false,
     data: type === 'conversation' 
       ? {
