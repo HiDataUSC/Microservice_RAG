@@ -209,7 +209,6 @@ function handleDragStart(event: MouseEvent) {
   // 检查点击的元素是否在消息区域内
   const messageArea = (event.target as HTMLElement).closest('.message-display-area')
   if (messageArea) {
-    // 阻止事件冒泡，防止触发画布拖拽
     event.stopPropagation()
     isInMessageArea.value = true
     return
@@ -219,12 +218,18 @@ function handleDragStart(event: MouseEvent) {
   const dragHandle = (event.target as HTMLElement).closest('.drag-handle')
   if (dragHandle) {
     nodesDraggable.value = true
+    return
   }
+
+  // 如果不是在以上区域内的点击，让事件继续传播以支持连线功能
+  isInMessageArea.value = false
 }
 
 function handleDragEnd(event: MouseEvent) {
-  // 阻止事件冒泡
-  event.stopPropagation()
+  // 只有在消息区域或拖拽手柄区域时才阻止事件传播
+  if (isInMessageArea.value || nodesDraggable.value) {
+    event.stopPropagation()
+  }
   isInMessageArea.value = false
   nodesDraggable.value = false
 }
@@ -259,7 +264,7 @@ function scrollToBottom() {
     :id="node.id" 
     class="rounded-sm border border-gray-200 bg-white p-3 shadow-md fixed-width"
     @selectstart="handleSelectStart"
-    @dragstart.prevent
+    @dragstart.prevent="isInMessageArea"
   >
     <Handle type="target" :position="Position.Left" />
     <div class="flex flex-col gap-y-4">
