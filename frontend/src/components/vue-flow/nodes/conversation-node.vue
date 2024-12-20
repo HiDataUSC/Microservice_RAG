@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import axios from 'axios'
 import { useToast } from '@/components/ui/toast'
+import FullscreenConversation from '@/components/fullscreen-conversation.vue'
+import { Teleport } from 'vue'
 
 import { LLMNodeData, LLMNodeEvents } from './index'
 
@@ -107,7 +109,7 @@ async function handleClickDeleteBtn() {
     // 立即删除节点
     removeNodes(node.id)
     
-    // 显示删除中的提示
+    // 显示删除提示
     toast({
       title: 'Deleting conversation history...',
       description: 'The conversation block has been removed.'
@@ -206,7 +208,7 @@ onUnmounted(() => {
   }
 })
 
-// 添加回车发送功能
+// 添加车发送功能
 function handleKeyPress(event: KeyboardEvent) {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
@@ -234,7 +236,7 @@ function handleDragStart(event: MouseEvent) {
     return
   }
 
-  // 如果不是在以上区域内的点击，让事件继续传播以支持��线功能
+  // 如果是在以上区域内的点击，让事件继续传播以支持线功能
   isInMessageArea.value = false
 }
 
@@ -270,29 +272,62 @@ function scrollToBottom() {
     messageArea.scrollTop = messageArea.scrollHeight
   }
 }
+
+// 添加新的状态和方法
+const isFullscreen = ref(false)
+
+const toggleFullscreen = () => {
+  isFullscreen.value = !isFullscreen.value
+}
+
+const handleSend = (message: string) => {
+  // Use the existing sendMessage function
+  userMessage.value = message;
+  sendMessage();
+};
+
+// Add autoResize function
+const textarea = ref<HTMLTextAreaElement | null>(null);
+
+const autoResize = () => {
+  if (textarea.value) {
+    textarea.value.style.height = 'auto';
+    textarea.value.style.height = `${textarea.value.scrollHeight}px`;
+  }
+};
+
+const handleExitFullscreen = () => {
+  // Add a small delay to allow the animation to complete
+  isFullscreen.value = false;
+};
 </script>
 
 <template>
   <div 
     :id="node.id" 
     class="rounded-sm border border-gray-200 bg-white p-3 shadow-md fixed-width"
+    :class="{ 'node-minimizing': isFullscreen }"
     @selectstart="handleSelectStart"
     @dragstart.prevent="isInMessageArea"
   >
     <Handle type="target" :position="Position.Left" />
-    <div class="flex flex-col gap-y-4">
-      <div class="drag-handle">
-        <div class="flex justify-between">
-          <div class="flex gap-x-2">
-            <img src="~@/assets/images/icon_LLM.png" class="mt-1 h-4 w-4" alt="LLM icon" />
-            <div class="flex flex-col gap-y-1">
-              <Input v-model="title" class="h-5" v-if="isEditTitle" @blur="() => (isEditTitle = false)" />
-              <h3 class="text-base" v-else>{{ title }}</h3>
-
-              <p class="text-sm text-gray-500">LLM</p>
-            </div>
+    
+    <div class="drag-handle">
+      <div class="flex justify-between items-center">
+        <div class="flex gap-x-2">
+          <img src="~@/assets/images/icon_LLM.png" class="mt-1 h-4 w-4" alt="LLM icon" />
+          <div class="flex flex-col gap-y-1">
+            <Input v-model="title" class="h-5" v-if="isEditTitle" @blur="() => (isEditTitle = false)" />
+            <h3 class="text-base" v-else>{{ title }}</h3>
+            <p class="text-sm text-gray-500">LLM</p>
           </div>
+        </div>
 
+        <div class="flex items-center">
+          <button class="action-btn mr-2" @click="toggleFullscreen">
+            <i class="fas" :class="isFullscreen ? 'fa-compress' : 'fa-expand'"></i>
+          </button>
+          
           <Menubar class="border-none">
             <menubar-menu>
               <menubar-trigger>
@@ -306,60 +341,83 @@ function scrollToBottom() {
             </menubar-menu>
           </Menubar>
         </div>
-
-        <span class="text-sm text-gray-500">Chat with your document directly in this node.</span>
       </div>
 
-      <div class="flex flex-col gap-y-4">
+      <span class="text-sm text-gray-500">Chat with AI</span>
+    </div>
+
+    <div class="flex flex-col gap-y-4">
+      <div
+        class="message-display-area h-40 overflow-y-auto overflow-x-hidden border-t border-b border-gray-200 py-2"
+        @wheel="handleScroll"
+        @mouseleave="handleMouseLeave"
+        @mouseenter="isInMessageArea = true"
+        @mousedown.stop
+        @dragstart.prevent
+      >
         <div
-          class="message-display-area h-40 overflow-y-auto overflow-x-hidden border-t border-b border-gray-200 py-2"
-          @wheel="handleScroll"
-          @mouseleave="handleMouseLeave"
-          @mouseenter="isInMessageArea = true"
-          @mousedown.stop
+          v-for="message in messages"
+          :key="message.id"
+          :class="{ 'flex justify-end': message.isUser, 'flex justify-start': !message.isUser }"
+          class="message-bubble"
           @dragstart.prevent
         >
           <div
-            v-for="message in messages"
-            :key="message.id"
-            :class="{ 'flex justify-end': message.isUser, 'flex justify-start': !message.isUser }"
-            class="message-bubble"
-            @dragstart.prevent
+            class="p-3 rounded-lg inline-block max-w-[85%]"
+            :class="message.isUser ? 'bg-blue-200 user-message' : 'bg-gray-200 ai-message'"
+            style="white-space: pre-wrap; word-break: break-word; user-select: text;"
           >
-            <div
-              class="p-3 rounded-lg inline-block max-w-[85%]"
-              :class="message.isUser ? 'bg-blue-200 user-message' : 'bg-gray-200 ai-message'"
-              style="white-space: pre-wrap; word-break: break-word; user-select: text;"
-            >
-              <template v-if="!message.isUser && message.text === '...'">
-                <span class="typing-dots">
-                  <span>.</span><span>.</span><span>.</span>
-                </span>
-              </template>
-              <template v-else>
-                {{ message.text }}
-              </template>
-            </div>
+            <template v-if="!message.isUser && message.text === '...'">
+              <span class="typing-dots">
+                <span>.</span><span>.</span><span>.</span>
+              </span>
+            </template>
+            <template v-else>
+              {{ message.text }}
+            </template>
           </div>
         </div>
+      </div>
 
-        <div class="input-area flex gap-x-2 items-center">
+      <div class="input-wrapper">
+        <div class="input-area">
           <textarea
             v-model="userMessage"
             placeholder="Type your message... (Press Enter to send)"
-            class="flex-1 min-h-[40px] max-h-[120px] p-2 rounded-md border border-input bg-background resize-none overflow-y-auto"
+            class="message-input"
             @keypress="handleKeyPress"
             @mousedown.stop
             @dragstart.prevent
             @mouseenter="isInMessageArea = true"
             @mouseleave="handleMouseLeave"
+            ref="textarea"
+            @input="autoResize"
+            rows="1"
           />
-          <Button @click="sendMessage">Send</Button>
+          <button 
+            class="send-button" 
+            @click="sendMessage"
+            :disabled="isGenerating"
+          >
+            <i class="fas fa-paper-plane"></i>
+          </button>
         </div>
       </div>
     </div>
     <Handle type="source" :position="Position.Right" />
   </div>
+
+  <Teleport to="body">
+    <FullscreenConversation
+      v-if="isFullscreen"
+      :messages="messages"
+      :is-generating="isGenerating"
+      :user-input="userMessage"
+      @update:user-input="(val) => userMessage = val"
+      @exit="handleExitFullscreen"
+      @send="sendMessage"
+    />
+  </Teleport>
 </template>
 
 <style scoped>
@@ -497,5 +555,187 @@ textarea {
     transform: translateY(-4px);
     opacity: 1;
   }
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: #666;
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-btn:hover {
+  color: #1976d2;
+}
+
+/* 确保图标大小致 */
+.action-btn i {
+  font-size: 1rem;
+}
+
+.input-area {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+  transition: border-color 0.2s;
+  margin: 0;
+}
+
+.input-area:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.message-input {
+  flex: 1;
+  border: none;
+  padding: 0;
+  background: transparent;
+  resize: none;
+  max-height: 200px;
+  min-height: 24px;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: #111827;
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.message-input:focus {
+  outline: none;
+}
+
+.message-input::placeholder {
+  color: #9ca3af;
+}
+
+.send-button {
+  padding: 0.5rem;
+  border: none;
+  background: #3b82f6;
+  color: white;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+}
+
+.send-button:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.send-button:disabled {
+  background: #e5e7eb;
+  cursor: not-allowed;
+}
+
+/* Update message bubbles to match fullscreen style */
+.message-bubble {
+  margin-bottom: 10px;
+  padding: 0 12px;
+  display: flex;
+  text-align: left;
+}
+
+.user-message {
+  background: #3b82f6;
+  color: white;
+  border-radius: 1rem;
+  border-top-right-radius: 0.25rem;
+  padding: 0.75rem 1rem;
+}
+
+.ai-message {
+  background: #f3f4f6;
+  color: #111827;
+  border-radius: 1rem;
+  border-top-left-radius: 0.25rem;
+  padding: 0.75rem 1rem;
+}
+
+.input-wrapper {
+  margin-top: 0;
+  padding: 0;
+}
+
+/* Add transition for the node */
+.rounded-sm {
+  transition: all 0.3s ease;
+}
+
+.node-minimizing {
+  transform: scale(0.95);
+  opacity: 0.5;
+}
+
+/* Add transitions for all interactive elements */
+.message-bubble,
+.input-area,
+.send-button,
+.action-btn,
+textarea {
+  transition: all 0.2s ease;
+}
+
+/* Add hover effects */
+.action-btn {
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.action-btn:hover {
+  transform: scale(1.1);
+}
+
+.send-button {
+  transition: all 0.2s ease;
+}
+
+.send-button:hover:not(:disabled) {
+  transform: scale(1.05);
+}
+
+/* Smooth transition for message bubbles */
+.message-bubble {
+  animation: messageFadeIn 0.3s ease;
+}
+
+@keyframes messageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Add transition for input area focus */
+.input-area {
+  transition: all 0.2s ease;
+}
+
+.input-area:focus-within {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+/* Add transition for typing dots */
+.typing-dots span {
+  transition: transform 0.3s ease;
 }
 </style>
