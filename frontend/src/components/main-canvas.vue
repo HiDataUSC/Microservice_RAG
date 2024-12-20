@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { markRaw, nextTick, ref, onMounted, watch } from 'vue'
+import { markRaw, nextTick, ref, onMounted, watch, onUnmounted } from 'vue'
 import { VueFlow, useVueFlow } from '@vue-flow/core'
 import { Background } from '@vue-flow/background'
 import { Controls } from '@vue-flow/controls'
@@ -34,6 +34,115 @@ const nodeTypes = {
 
 const { findNode, nodes, addNodes, addEdges, project, vueFlowRef, onConnect, setNodes, setEdges, setViewport, removeEdges, viewport } = useVueFlow()
 
+const initialTouchDistance = ref(0)
+const initialTouchCenter = ref({ x: 0, y: 0 })
+const lastTouchCenter = ref({ x: 0, y: 0 })
+const isMultiTouch = ref(false)
+const isPanning = ref(false)
+
+function getTouchCenter(touch1: Touch, touch2: Touch) {
+  return {
+    x: (touch1.clientX + touch2.clientX) / 2,
+    y: (touch1.clientY + touch2.clientY) / 2
+  }
+}
+
+function handleWheel(event: WheelEvent) {
+  event.preventDefault()
+  
+  const isTouchpad = event.deltaMode === 0
+  
+  if (!isTouchpad) return
+  
+  const { deltaX, deltaY, ctrlKey } = event
+  
+  if (!ctrlKey) {
+    isPanning.value = true
+    document.getElementById('main-canvas')?.classList.add('panning')
+    
+    setTimeout(() => {
+      isPanning.value = false
+      document.getElementById('main-canvas')?.classList.remove('panning')
+    }, 1000)
+  }
+  
+  if (ctrlKey) {
+    const zoomFactor = deltaY > 0 ? 0.95 : 1.05
+    setViewport({
+      x: viewport.value.x,
+      y: viewport.value.y,
+      zoom: viewport.value.zoom * zoomFactor
+    })
+    return
+  }
+  
+  setViewport({
+    x: viewport.value.x - deltaX * 1.5,
+    y: viewport.value.y - deltaY * 1.5,
+    zoom: viewport.value.zoom
+  })
+}
+
+function handleTouchStart(event: TouchEvent) {
+  if (event.touches.length === 2) {
+    isMultiTouch.value = true
+    const touch1 = event.touches[0]
+    const touch2 = event.touches[1]
+    
+    initialTouchDistance.value = Math.hypot(
+      touch2.clientX - touch1.clientX,
+      touch2.clientY - touch1.clientY
+    )
+    
+    const center = getTouchCenter(touch1, touch2)
+    initialTouchCenter.value = center
+    lastTouchCenter.value = center
+  }
+}
+
+function handleTouchMove(event: TouchEvent) {
+  if (!isMultiTouch.value || event.touches.length !== 2) return
+  
+  isPanning.value = true
+  document.getElementById('main-canvas')?.classList.add('panning')
+  
+  const touch1 = event.touches[0]
+  const touch2 = event.touches[1]
+  
+  const currentCenter = getTouchCenter(touch1, touch2)
+  
+  const currentDistance = Math.hypot(
+    touch2.clientX - touch1.clientX,
+    touch2.clientY - touch1.clientY
+  )
+  
+  const scale = currentDistance / initialTouchDistance.value
+  const zoomChange = scale > 1 ? 1.02 : scale < 1 ? 0.98 : 1
+  
+  const dx = currentCenter.x - lastTouchCenter.value.x
+  const dy = currentCenter.y - lastTouchCenter.value.y
+  
+  setViewport({
+    x: viewport.value.x + dx,
+    y: viewport.value.y + dy,
+    zoom: viewport.value.zoom * (Math.abs(scale - 1) > 0.1 ? zoomChange : 1)
+  })
+  
+  lastTouchCenter.value = currentCenter
+}
+
+function handleTouchEnd() {
+  isMultiTouch.value = false
+  initialTouchDistance.value = 0
+  initialTouchCenter.value = { x: 0, y: 0 }
+  lastTouchCenter.value = { x: 0, y: 0 }
+  
+  setTimeout(() => {
+    isPanning.value = false
+    document.getElementById('main-canvas')?.classList.remove('panning')
+  }, 1000)
+}
+
 onMounted(() => {
   nextTick(() => {
     if (props.data) {
@@ -42,6 +151,24 @@ onMounted(() => {
       setViewport({ x: props.data.position[0], y: props.data.position[1], zoom: props.data.zoom })
     }
   })
+
+  const vueFlowElement = vueFlowRef.value
+  if (vueFlowElement) {
+    vueFlowElement.addEventListener('wheel', handleWheel, { passive: false })
+    vueFlowElement.addEventListener('touchstart', handleTouchStart)
+    vueFlowElement.addEventListener('touchmove', handleTouchMove)
+    vueFlowElement.addEventListener('touchend', handleTouchEnd)
+  }
+})
+
+onUnmounted(() => {
+  const vueFlowElement = vueFlowRef.value
+  if (vueFlowElement) {
+    vueFlowElement.removeEventListener('wheel', handleWheel)
+    vueFlowElement.removeEventListener('touchstart', handleTouchStart)
+    vueFlowElement.removeEventListener('touchmove', handleTouchMove)
+    vueFlowElement.removeEventListener('touchend', handleTouchEnd)
+  }
 })
 
 watch(
@@ -152,6 +279,9 @@ function handlePaneClick() {
       @move="handleViewportChange"
       @move-end="handleViewportChange"
       @zoom="handleViewportChange"
+      :prevent-scrolling="false"
+      :zoom-on-scroll="false"
+      :pan-on-scroll="false"
     >
       <Controls />
       <Background />
@@ -199,12 +329,51 @@ function handlePaneClick() {
 
 #main-canvas {
   --vf-handle: hsl(var(--primary));
+  position: relative;
+  overflow: hidden;
 
   .vue-flow__handle {
     width: 18px;
     height: 18px;
   }
+
+  /* 添加自定义滚动条样式 */
+  &::after,
+  &::before {
+    content: '';
+    position: fixed;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 1000;
+  }
+
+  /* 垂直滚动条 */
+  &::after {
+    width: 8px;
+    height: 100px;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  /* 水平滚动条 */
+  &::before {
+    height: 8px;
+    width: 100px;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  /* 在平移时显示滚动条 */
+  &.panning::after,
+  &.panning::before {
+    opacity: 1;
+  }
 }
+
 .vue-flow__edge {
   cursor: pointer;
 }
@@ -216,5 +385,14 @@ function handlePaneClick() {
 .vue-flow__edge.selected {
   stroke: #ef4444;
   stroke-width: 2;
+}
+
+/* 隐藏默认滚动条 */
+.vue-flow__viewport {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  &::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
 }
 </style>
