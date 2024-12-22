@@ -7,12 +7,9 @@ import openai
 import numpy as np
 
 class IntentCategory(Enum):
-    GREETING = "greeting"
-    FAREWELL = "farewell"
-    QUERY_WEATHER = "query_weather"
-    QUERY_TIME = "query_time"
-    HELP_REQUEST = "help_request"
-    OTHER = "other"
+    PROJECT_PLANNING = "project_planning"  # For project drafting/planning requests
+    CONVERSATION = "conversation"          # For general conversation
+    OTHER = "other"                       # For any other types of requests
     UNKNOWN = "unknown"
     
     @classmethod

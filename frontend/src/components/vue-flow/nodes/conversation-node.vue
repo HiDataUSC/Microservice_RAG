@@ -208,7 +208,7 @@ onUnmounted(() => {
   }
 })
 
-// 添加车发送功能
+// 添加发送功能
 function handleKeyPress(event: KeyboardEvent) {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
@@ -300,6 +300,35 @@ const handleExitFullscreen = () => {
   // Add a small delay to allow the animation to complete
   isFullscreen.value = false;
 };
+
+// 添加计算连接节点的逻辑
+const connectedNodes = computed(() => {
+  return edges.value
+    .filter(edge => edge.source === node.id || edge.target === node.id)
+    .map(edge => {
+      const connectedNodeId = edge.source === node.id ? edge.target : edge.source
+      const connectedNode = nodes.value.find(n => n.id === connectedNodeId)
+      return {
+        id: connectedNodeId,
+        title: connectedNode?.data?.title || connectedNodeId
+      }
+    })
+})
+
+// 格式化显示文本
+const connectedNodesText = computed(() => {
+  return connectedNodes.value
+    .map(node => node.title)
+    .join(', ')
+})
+
+// 添加气泡行数的计算
+const bubbleRows = computed(() => {
+  if (!connectedNodes.value.length) return 0;
+  // 假设每个气泡宽度平均200px，加上间距6px，在600px宽度的容器中计算行数
+  const bubblesPerRow = Math.floor(600 / (200 + 6));
+  return Math.ceil(connectedNodes.value.length / bubblesPerRow);
+});
 </script>
 
 <template>
@@ -310,6 +339,17 @@ const handleExitFullscreen = () => {
     @selectstart="handleSelectStart"
     @dragstart.prevent="isInMessageArea"
   >
+    <!-- 修改共享记忆提示为多个气泡 -->
+    <div v-if="connectedNodes.length > 0" class="memory-sharing-bubbles">
+      <div 
+        v-for="node in connectedNodes" 
+        :key="node.id" 
+        class="memory-sharing-indicator"
+      >
+        Sharing with: {{ node.title }}
+      </div>
+    </div>
+
     <Handle type="target" :position="Position.Left" />
     
     <div class="drag-handle">
@@ -421,321 +461,6 @@ const handleExitFullscreen = () => {
 </template>
 
 <style scoped>
-.resizable-container {
-  width: 100%;
-  height: 100%;
-}
-
-.resizable-content {
-  height: 100%;
-  width: 100%;
-}
-
-.text-right {
-  text-align: right;
-}
-.text-left {
-  text-align: left;
-}
-
-.fixed-width {
-  width: 600px;
-}
-
-.message-display-area {
-  max-height: 200px;
-  overflow-y: auto;
-  user-select: text;
-  position: relative;
-  z-index: 1;
-  pointer-events: auto;
-  /* 确保消息区域可以独立处理事件 */
-  isolation: isolate;
-  -webkit-user-drag: none;
-}
-
-.message-bubble {
-  margin-bottom: 10px;
-  padding: 0 12px;
-  display: flex;
-  text-align: left;
-  user-select: text;
-  pointer-events: auto;
-  -webkit-user-drag: none;
-}
-
-.user-message {
-  background-color: #e3f2fd;
-  border: 1px solid #bbdefb;
-  cursor: text;
-  position: relative;
-  z-index: 2;
-}
-
-.ai-message {
-  background-color: #f5f5f5;
-  border: 1px solid #e0e0e0;
-  cursor: text;
-  position: relative;
-  z-index: 2;
-}
-
-textarea {
-  font-family: inherit;
-  line-height: 1.5;
-  position: relative;
-  z-index: 2;
-  user-select: text;
-  -webkit-user-drag: none;
-  &:focus {
-    outline: none;
-    border-color: hsl(var(--primary));
-    ring: 1px solid hsl(var(--primary));
-  }
-}
-
-.drag-handle {
-  cursor: move;
-  padding: 8px;
-  width: 100%;
-  user-select: none;
-  position: relative;
-  z-index: 3;
-  pointer-events: auto;
-  /* 确保拖拽句柄的事件不会影响其他区域 */
-  isolation: isolate;
-}
-
-.message-display-area,
-.input-area {
-  cursor: default;
-  user-select: text;
-}
-
-/* 添加防止拖拽时选中文本 */
-.drag-handle * {
-  user-select: none;
-}
-
-.input-area {
-  cursor: default;
-  user-select: text;
-  position: relative;
-  z-index: 2;
-  isolation: isolate;
-  pointer-events: auto;
-}
-
-.typing-dots {
-  display: inline-flex;
-  align-items: center;
-  height: 20px;
-}
-
-.typing-dots span {
-  animation: typingDot 1.4s infinite;
-  font-size: 20px;
-  line-height: 20px;
-}
-
-.typing-dots span:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.typing-dots span:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-@keyframes typingDot {
-  0%, 60%, 100% {
-    transform: translateY(0);
-    opacity: 0.3;
-  }
-  30% {
-    transform: translateY(-4px);
-    opacity: 1;
-  }
-}
-
-.action-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
-  color: #666;
-  transition: color 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.action-btn:hover {
-  color: #1976d2;
-}
-
-/* 确保图标大小致 */
-.action-btn i {
-  font-size: 1rem;
-}
-
-.input-area {
-  display: flex;
-  gap: 0.75rem;
-  align-items: flex-start;
-  background: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 0.75rem;
-  padding: 0.75rem;
-  transition: border-color 0.2s;
-  margin: 0;
-}
-
-.input-area:focus-within {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-}
-
-.message-input {
-  flex: 1;
-  border: none;
-  padding: 0;
-  background: transparent;
-  resize: none;
-  max-height: 200px;
-  min-height: 24px;
-  font-size: 0.9375rem;
-  line-height: 1.5;
-  color: #111827;
-  margin-top: 0;
-  padding-top: 0;
-}
-
-.message-input:focus {
-  outline: none;
-}
-
-.message-input::placeholder {
-  color: #9ca3af;
-}
-
-.send-button {
-  padding: 0.5rem;
-  border: none;
-  background: #3b82f6;
-  color: white;
-  border-radius: 0.5rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 2.5rem;
-  height: 2.5rem;
-  flex-shrink: 0;
-}
-
-.send-button:hover:not(:disabled) {
-  background: #2563eb;
-}
-
-.send-button:disabled {
-  background: #e5e7eb;
-  cursor: not-allowed;
-}
-
-/* Update message bubbles to match fullscreen style */
-.message-bubble {
-  margin-bottom: 10px;
-  padding: 0 12px;
-  display: flex;
-  text-align: left;
-}
-
-.user-message {
-  background: #3b82f6;
-  color: white;
-  border-radius: 1rem;
-  border-top-right-radius: 0.25rem;
-  padding: 0.75rem 1rem;
-}
-
-.ai-message {
-  background: #f3f4f6;
-  color: #111827;
-  border-radius: 1rem;
-  border-top-left-radius: 0.25rem;
-  padding: 0.75rem 1rem;
-}
-
-.input-wrapper {
-  margin-top: 0;
-  padding: 0;
-}
-
-/* Add transition for the node */
-.rounded-sm {
-  transition: all 0.3s ease;
-}
-
-.node-minimizing {
-  transform: scale(0.95);
-  opacity: 0.5;
-}
-
-/* Add transitions for all interactive elements */
-.message-bubble,
-.input-area,
-.send-button,
-.action-btn,
-textarea {
-  transition: all 0.2s ease;
-}
-
-/* Add hover effects */
-.action-btn {
-  transition: transform 0.2s ease, color 0.2s ease;
-}
-
-.action-btn:hover {
-  transform: scale(1.1);
-}
-
-.send-button {
-  transition: all 0.2s ease;
-}
-
-.send-button:hover:not(:disabled) {
-  transform: scale(1.05);
-}
-
-/* Smooth transition for message bubbles */
-.message-bubble {
-  animation: messageFadeIn 0.3s ease;
-}
-
-@keyframes messageFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Add transition for input area focus */
-.input-area {
-  transition: all 0.2s ease;
-}
-
-.input-area:focus-within {
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
-}
-
-/* Add transition for typing dots */
-.typing-dots span {
-  transition: transform 0.3s ease;
-}
+@import './css/conversation-node.css';
 </style>
+
