@@ -565,7 +565,7 @@ const onDragOver = (event: DragEvent) => {
             <tabs-list class="grid w-full grid-cols-3">
               <tabs-trigger value="projects"> Projects </tabs-trigger>
               <tabs-trigger value="basic-nodes"> Basic Nodes </tabs-trigger>
-              <tabs-trigger value="Documents"> Documents </tabs-trigger>
+              <tabs-trigger value="Documents" disabled class="opacity-50 cursor-not-allowed"> Documents </tabs-trigger>
             </tabs-list>
 
             <!-- Projects Section -->
@@ -603,9 +603,8 @@ const onDragOver = (event: DragEvent) => {
                   </p>
                 </div>  
                 <div
-                  class="mx-6 mb-6 cursor-grab rounded-md bg-white p-6 shadow-md"
-                  :draggable="true"
-                  @dragstart="handleOnDragStart($event, 'document_upload')"
+                  class="mx-6 mb-6 cursor-not-allowed rounded-md bg-white p-6 shadow-md opacity-50"
+                  :draggable="false"
                 >
                   <div class="flex items-center justify-between">
                     <h3 class="flex items-center gap-x-1">
@@ -621,21 +620,20 @@ const onDragOver = (event: DragEvent) => {
             </tabs-content>
 
             <tabs-content value="Documents">
-              <scroll-area class="h-[calc(100vh-150px)] w-full">
+              <scroll-area class="h-[calc(100vh-150px)] w-full opacity-50 pointer-events-none">
                 <div class="grid grid-rows-[auto_1fr]">
                   <div class="bg-slate-50 p-4 border-b">
                     <div class="flex flex-col gap-2">
                       <input 
                         type="file" 
-                        @change="handleFileChange" 
-                        class="w-full p-2 border border-gray-300 rounded-md"
+                        disabled
+                        class="w-full p-2 border border-gray-300 rounded-md cursor-not-allowed"
                       />
                       <button 
-                        @click="handleUpload" 
-                        :disabled="!selectedFile || isUploading" 
-                        class="w-full p-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-300"
+                        disabled
+                        class="w-full p-2 bg-gray-300 text-white rounded-md cursor-not-allowed"
                       >
-                        {{ isUploading ? 'Processing...' : 'Upload' }}
+                        Upload
                       </button>
                     </div>
                   </div>
@@ -644,7 +642,7 @@ const onDragOver = (event: DragEvent) => {
                     <ul class="mx-6 my-4 space-y-2">
                       <li v-for="file_name in file_names" :key="file_name" class="flex justify-between p-2">
                         <span>{{ file_name }}</span>
-                        <button @click="confirmDeleteFile(getFileKey(file_name))" class="text-red-500 hover:text-red-700">
+                        <button disabled class="text-gray-400 cursor-not-allowed">
                           Delete
                         </button>
                       </li>
