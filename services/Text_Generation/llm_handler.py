@@ -68,75 +68,59 @@ class LLMHandler:
         self.llm = ChatOpenAI(model_name="gpt-3.5-turbo", temperature=0)
 
     def _format_external_history(self, history: List[HumanMessage | AIMessage], source_id: str) -> str:
-        """
-        Format external conversation history for context.
-        
-        Args:
-            history: List of conversation messages
-            source_id: ID of the source block
-            
-        Returns:
-            str: Formatted context information
-        """
-        # Sort history by timestamp
-        sorted_history = sorted(history, 
-                              key=lambda x: x.additional_kwargs.get('timestamp', '') 
-                              if hasattr(x, 'additional_kwargs') else '')
-        
-        # Create a more structured summary
-        summary_parts = []
-        summary_parts.append(f"Related discussion from conversation {source_id}:")
-        
-        for msg in sorted_history:
+        """Format external conversation history for context"""
+        formatted_history = []
+        for msg in history:
             role = "User" if isinstance(msg, HumanMessage) else "Assistant"
             content = msg.content.strip()
-            # Only include substantive messages
-            if content and len(content) > 5:
-                summary_parts.append(f"{role}: {content}")
+            if content:
+                # 添加更明确的标记来突出重要信息
+                if any(keyword in content.lower() for keyword in ['deadline', 'ddl', 'due date']):
+                    formatted_history.append(f"[IMPORTANT] {role}: {content}")
+                else:
+                    formatted_history.append(f"{role}: {content}")
         
-        return "\n".join(summary_parts)
+        return "\n".join([
+            f"\nRelevant conversation from block {source_id}:",
+            *formatted_history,
+            "\n"
+        ])
 
     def generate_answer(self, **kwargs) -> str:
-        """
-        Generate answer using LLM based on input parameters.
-        
-        Args:
-            **kwargs: Must include 'question', may include 'current_history' and 'external_sources'
-            
-        Returns:
-            str: Generated answer from LLM
-        """
         params = PromptParams.from_kwargs(**kwargs)
         
-        # Get all external source types
-        external_types = list(set(source['type'] for source in params.external_sources))
-        
-        # Build message list starting with system prompt
         messages = [
-            SystemMessage(content=self.strategy.get_template(external_types))
+            SystemMessage(content="""You are a helpful AI assistant engaged in a conversation. 
+            When answering questions:
+            1. Always check the provided context for relevant information
+            2. If a question refers to information in previous conversations, use that information directly
+            3. For questions about dates, deadlines, or events, refer to the specific dates mentioned in the context
+            4. Be direct and specific when the information is available in the context
+            5. Only ask for clarification if the information is not available in any context""")
         ]
         
-        # Add current conversation history first
+        # Add current conversation history
         if params.current_history:
             messages.extend(params.current_history)
         
-        # Add external sources as reference information
+        # Add external sources with clear separation
         if params.external_sources:
-            messages.append(SystemMessage(content="""Reference information from related discussions:
-            The following are relevant conversations that may provide additional context for your response."""))
-            
+            context_messages = []
             for source in params.external_sources:
-                source_type = source['type']
-                content = source['content']
-                source_id = source['source_id']
-                
-                if source_type == 'conversation_history':
-                    formatted_context = self._format_external_history(content, source_id)
-                    messages.append(SystemMessage(content=formatted_context))
-
-        # Add a focusing prompt before the user's question
-        messages.append(SystemMessage(content="""Now, focus on answering the user's current question. 
-        Use the above context only if it helps provide a better response."""))
+                if source['type'] == 'conversation_history':
+                    formatted_context = self._format_external_history(source['content'], source['source_id'])
+                    context_messages.append(SystemMessage(content=formatted_context))
+            
+            if context_messages:
+                messages.append(SystemMessage(content="=== Relevant Context ==="))
+                messages.extend(context_messages)
+                messages.append(SystemMessage(content="=== End Context ==="))
+        
+        # Add focusing prompt
+        messages.append(SystemMessage(content="""Now, answer the user's question:
+        - If the question refers to information in the context, use that information directly
+        - Be specific and reference the exact information from the context
+        - Only ask for clarification if the information is truly missing"""))
         
         messages.append(HumanMessage(content=params.question))
         

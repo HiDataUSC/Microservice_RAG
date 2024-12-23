@@ -100,27 +100,21 @@ async function getAiResponse(userText: string): Promise<string> {
   }
 }
 
-// 添加 toast
 const { toast } = useToast()
 
-// 修改删除方法
 async function handleClickDeleteBtn() {
   try {
-    // 立即删除节点
     removeNodes(node.id)
-    
-    // 显示删除提示
     toast({
       title: 'Deleting conversation history...',
       description: 'The conversation block has been removed.'
     })
     
-    // 在后台删除历史记录，添加 block_type 参数
     const response = await axios.post(Block_Action_API, {
       action_type: 'delete',
       workspace_id: workspace_id.value,
       block_id: block_id.value,
-      block_type: 'conversation' // 添加 block_type 标识
+      block_type: 'conversation' 
     })
     
     if (response.status === 200) {
@@ -164,7 +158,6 @@ function handleScroll(event: WheelEvent) {
   event.stopPropagation();
 }
 
-// 从 blockChats 中加载消息
 const loadMessages = () => {
   if (!Array.isArray(blockChats.value)) {
     console.error('blockChats.value is not an array:', blockChats.value)
@@ -174,31 +167,25 @@ const loadMessages = () => {
   const blockChat = blockChats.value.find(chat => chat.blockId === node.id)
   if (blockChat) {
     messages.value = blockChat.messages
-    // 在加载消息后滚动到底部
     nextTick(() => scrollToBottom())
   }
 }
 
-// 监听 blockChats 的化
 watch(blockChats, () => {
   loadMessages()
 }, { deep: true })
 
-// 组件挂载时加载消息
 onMounted(() => {
   loadMessages()
   
-  // 添加拖拽相关的事件监听
   const nodeElement = document.getElementById(node.id)
   if (nodeElement) {
     nodeElement.addEventListener('mousedown', handleDragStart)
     nodeElement.addEventListener('mouseup', handleDragEnd)
-    // 添加 mouseleave 以处理拖出节点的情况
     nodeElement.addEventListener('mouseleave', handleDragEnd)
   }
 })
 
-// 在 onUnmounted 中清理事件监听
 onUnmounted(() => {
   const nodeElement = document.getElementById(node.id)
   if (nodeElement) {
@@ -208,7 +195,6 @@ onUnmounted(() => {
   }
 })
 
-// 添加发送功能
 function handleKeyPress(event: KeyboardEvent) {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
@@ -216,12 +202,9 @@ function handleKeyPress(event: KeyboardEvent) {
   }
 }
 
-// 设置节点默认不可拖拽
 nodesDraggable.value = false
 
-// 修改拖拽处理函数
 function handleDragStart(event: MouseEvent) {
-  // 检查点击的元素是否在消息区域内
   const messageArea = (event.target as HTMLElement).closest('.message-display-area')
   if (messageArea) {
     event.stopPropagation()
@@ -229,19 +212,16 @@ function handleDragStart(event: MouseEvent) {
     return
   }
   
-  // 检查点击的元素是否在 drag-handle 区域内
   const dragHandle = (event.target as HTMLElement).closest('.drag-handle')
   if (dragHandle) {
     nodesDraggable.value = true
     return
   }
 
-  // 如果是在以上区域内的点击，让事件继续传播以支持线功能
   isInMessageArea.value = false
 }
 
 function handleDragEnd(event: MouseEvent) {
-  // 只有在消息区域或拖拽手柄区域时才阻止事件传播
   if (isInMessageArea.value || nodesDraggable.value) {
     event.stopPropagation()
   }
@@ -249,23 +229,19 @@ function handleDragEnd(event: MouseEvent) {
   nodesDraggable.value = false
 }
 
-// 添加鼠标离开消息区域的处理
 function handleMouseLeave(event: MouseEvent) {
   event.stopPropagation()
   isInMessageArea.value = false
 }
 
-// 添加文本选择开始处理
 function handleSelectStart(event: Event) {
   if (isInMessageArea.value) {
     event.stopPropagation()
   }
 }
 
-// 添加状态来跟踪是否在消息区域内
 const isInMessageArea = ref(false)
 
-// 在 script setup 部分添加一个新的函数
 function scrollToBottom() {
   const messageArea = document.querySelector(`#${node.id} .message-display-area`)
   if (messageArea) {
@@ -273,7 +249,6 @@ function scrollToBottom() {
   }
 }
 
-// 添加新的状态和方法
 const isFullscreen = ref(false)
 
 const toggleFullscreen = () => {

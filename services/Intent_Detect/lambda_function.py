@@ -1,5 +1,6 @@
 import json
 from app import IntentDetector
+from intent_handlers import IntentHandlerFactory
 
 def lambda_handler(event, context):
     try:
@@ -19,13 +20,15 @@ def lambda_handler(event, context):
         if not query:
             return {
                 'statusCode': 400,
-                'body': json.dumps({
-                    'error': 'Please provide input text'
-                })
+                'headers': {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                'body': json.dumps('Query is required')
             }
         
+        # 1. 检测意图
         detector = IntentDetector()
-        
         intent_result = detector.detect(
             text=query,
             workspace_id=workspace_id,
@@ -33,19 +36,21 @@ def lambda_handler(event, context):
             connections=connections
         )
         
-        return {
-            'statusCode': 200,
-            'headers': {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*'
-            },
-            'body': json.dumps(intent_result)
-        }
+        # 2. 获取对应的处理器并处理
+        handler = IntentHandlerFactory.get_handler(intent_result['intent_id'])
+        handler_result = handler.handle(body)
+        
+        # 3. 直接返回处理结果
+        return handler_result
         
     except Exception as e:
         return {
             'statusCode': 500,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            },
             'body': json.dumps({
-                'error': f'processing error: {str(e)}'
+                'error': f'Processing error: {str(e)}'
             })
         } 
