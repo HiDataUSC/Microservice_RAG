@@ -55,15 +55,17 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue';
 
+interface Message {
+  id: number
+  text: string
+  isUser: boolean
+}
+
 const props = defineProps<{
-  messages: Array<{
-    id: number;
-    text: string;
-    isUser: boolean;
-  }>;
-  isGenerating: boolean;
-  userInput: string;
-}>();
+  messages: Message[]
+  isGenerating: boolean
+  userInput: string
+}>()
 
 const emit = defineEmits(['exit', 'send', 'update:user-input']);
 

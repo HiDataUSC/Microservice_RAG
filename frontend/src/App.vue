@@ -15,11 +15,8 @@ import axios from 'axios'
 import { 
   file_names, 
   documents, 
-  BASE_URL, 
   workspace_id, 
-  Loader, 
   blockChats, 
-  Save_Workspace_API,
   currentProject,
   projects
 } from './store.ts'
@@ -41,6 +38,23 @@ const currentProjectData = ref({
   zoom: 1,
   viewport: { x: 0, y: 0, zoom: 1 }
 })
+
+// 添加类型定义
+interface Project {
+  id: string
+  name: string
+  flowchartData: {
+    nodes: any[]
+    edges: any[]
+    position: [number, number]
+    zoom: number
+    viewport?: { x: number; y: number; zoom: number }
+  }
+}
+
+interface WorkspaceData {
+  projects: Project[]
+}
 
 function selectProject(projectId: string) {
   if (!projectId) return
@@ -67,7 +81,8 @@ function selectProject(projectId: string) {
   }
 }
 
-function formatDataForMainCanvas(data) {
+// 修改函数参数类型
+function formatDataForMainCanvas(data: any) {
   return workspaceManager.formatDataForMainCanvas(data)
 }
 
@@ -103,7 +118,7 @@ const { copy } = useClipboard()
 
 const loadChatHistory = async () => {
   try {
-    const response = await axios.post(Loader, {
+    const response = await axios.post(window.API_CONFIG.LOADER, {
       workspace_id: workspace_id.value
     })
     
@@ -118,7 +133,7 @@ const loadChatHistory = async () => {
 
 const loadWorkspaceData = async () => {
   try {
-    const response = await axios.post(Loader, {
+    const response = await axios.post(window.API_CONFIG.LOADER, {
       workspace_id: workspace_id.value,
       type: 'workspace'
     })
@@ -158,7 +173,7 @@ const loadWorkspaceData = async () => {
         })
       } else {
         // 处理现有项目数据
-        workspaceData.projects.forEach(project => {
+        workspaceData.projects.forEach((project: Project) => {
           // 确保 flowchartData 存在，如果不存在则使用空的数据结构
           const flowchartData = project.flowchartData || {
             nodes: [],
@@ -307,14 +322,12 @@ const switchProject = async (projectId: string) => {
 
 const saveWorkspaceData = async (projectId: string, showToast: boolean = false) => {
   try {
-    // 从 localStorage 获取数据
     const savedData = localStorage.getItem(`project-${projectId}`)
     if (!savedData) {
       return
     }
 
-    // 保存到服务器
-    const response = await axios.post(Save_Workspace_API, {
+    const response = await axios.post(window.API_CONFIG.SAVE_WORKSPACE, {
       workspace_id: workspace_id.value,
       project_id: projectId,
       flowchart_data: JSON.parse(savedData)
@@ -347,7 +360,7 @@ async function fetchFileList() {
   }
 }
 
-async function deleteFile(fileKey) {
+async function deleteFile(fileKey: string) {
   try {
     const response = await axios.post(`${BASE_URL}/delete_file`, { key: fileKey });
     if (response.status === 200) {
@@ -361,7 +374,7 @@ async function deleteFile(fileKey) {
   }
 }
 
-function getFileKey(fileName) {
+function getFileKey(fileName: string) {
   const document = documents.value.find(doc => doc.metadata['name'] === fileName);
   return document ? document.content.Key : null;
 }
@@ -369,7 +382,7 @@ function getFileKey(fileName) {
 const showDeleteConfirm = ref(false)
 const fileToDelete = ref(null)
 
-function confirmDeleteFile(fileKey) {
+function confirmDeleteFile(fileKey: string) {
   fileToDelete.value = fileKey
   showDeleteConfirm.value = true
 }
@@ -423,7 +436,7 @@ async function handleUpload() {
 // 添加防抖函数
 function debounce(fn: Function, delay: number) {
   let timer: number | null = null
-  return function (...args: any[]) {
+  return function(this: any, ...args: any[]) {
     if (timer) clearTimeout(timer)
     timer = window.setTimeout(() => {
       fn.apply(this, args)

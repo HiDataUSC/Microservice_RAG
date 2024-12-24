@@ -18,8 +18,15 @@ import type { Dimensions, Elements } from '@vue-flow/core'
 import type { Node, Edge } from '@vue-flow/core'
 import type { Edge as EdgeType } from '@vue-flow/core'
 
+interface MainCanvasData {
+  nodes: Node<any, any, string>[]
+  edges: Edge[]
+  position: [number, number]
+  zoom: number
+}
+
 const props = defineProps<{
-  data: { nodes: Node[]; edges: Edge[]; position: [number, number]; zoom: number }
+  data: MainCanvasData
 }>()
 
 const nodeTypes = {
@@ -191,7 +198,7 @@ onConnect((params) => {
   addEdges(params)
 })
 
-const selectedEdge = ref(null)
+const selectedEdge = ref<EdgeType | null>(null)
 const edgeMenuPosition = ref({ x: 0, y: 0 })
 
 function updateEdgeMenuPosition(edge: EdgeType) {

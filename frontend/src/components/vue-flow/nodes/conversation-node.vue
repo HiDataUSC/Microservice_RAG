@@ -13,7 +13,7 @@ import { Teleport } from 'vue'
 import { LLMNodeData, LLMNodeEvents } from './index'
 
 import type { NodeProps } from '@vue-flow/core'
-import {file_names, documents, BASE_URL, Text_Generation_API, workspace_id, blockChats, Block_Action_API} from '@/store.ts'
+import {file_names, documents, workspace_id, blockChats} from '@/store.ts'
 
 const emit = defineEmits<{
   'updateNodeInternals': []
@@ -87,7 +87,7 @@ async function getAiResponse(userText: string): Promise<string> {
         }
       })
 
-    const response = await axios.post(Text_Generation_API, { 
+    const response = await axios.post(window.API_CONFIG.TEXT_GENERATION, { 
       query: userText,
       workspace_id: workspace_id.value,
       block_id: block_id.value,
@@ -120,7 +120,7 @@ async function handleClickDeleteBtn() {
       localStorage.setItem(flowKey, JSON.stringify(data))
     }
     
-    const response = await axios.post(Block_Action_API, {
+    const response = await axios.post(window.API_CONFIG.BLOCK_ACTION, {
       action_type: 'delete',
       workspace_id: workspace_id.value,
       block_id: block_id.value,
@@ -335,6 +335,18 @@ const handleTitleChange = () => {
   }
   saveToLocalStorage()
   emit('updateNodeInternals')
+}
+
+const handleSomeAction = async () => {
+  const response = await fetch(window.API_CONFIG.TEXT_GENERATION, {
+    // ... 其他配置
+  })
+}
+
+const handleBlockAction = async () => {
+  const response = await fetch(window.API_CONFIG.BLOCK_ACTION, {
+    // ... 其他配置
+  })
 }
 </script>
 
