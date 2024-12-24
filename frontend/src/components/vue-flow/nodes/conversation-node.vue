@@ -15,6 +15,9 @@ import { LLMNodeData, LLMNodeEvents } from './index'
 import type { NodeProps } from '@vue-flow/core'
 import {file_names, documents, BASE_URL, Text_Generation_API, workspace_id, blockChats, Block_Action_API} from '@/store.ts'
 
+const emit = defineEmits<{
+  'updateNodeInternals': []
+}>()
 
 const messages = ref<{ id: number; text: string; isUser: boolean }[]>([])
 const userMessage = ref('')
@@ -55,13 +58,11 @@ async function sendMessage() {
   
   try {
     const aiResponse = await getAiResponse(userQuery)
-    // 更新临时消息的内容
     const messageIndex = messages.value.findIndex(m => m.id === tempMessageId)
     if (messageIndex !== -1) {
       messages.value[messageIndex].text = aiResponse
     }
   } catch (error) {
-    // 如果发生错误，更新临时消息显示错误信息
     const messageIndex = messages.value.findIndex(m => m.id === tempMessageId)
     if (messageIndex !== -1) {
       messages.value[messageIndex].text = 'Error: Unable to get response from server.'
@@ -75,7 +76,6 @@ async function sendMessage() {
 // Simulate AI response function (you can replace this with an actual API call)
 async function getAiResponse(userText: string): Promise<string> {
   try {
-    // 获取与当前节点相连的所有节点信息
     const nodeConnections = edges.value
       .filter(edge => edge.source === node.id || edge.target === node.id)
       .map(edge => {
@@ -91,7 +91,7 @@ async function getAiResponse(userText: string): Promise<string> {
       query: userText,
       workspace_id: workspace_id.value,
       block_id: block_id.value,
-      connections: nodeConnections // 添加连接信息
+      connections: nodeConnections
     })
     return response.data.body || 'No answer was generated.'
   } catch (error) {
@@ -105,16 +105,26 @@ const { toast } = useToast()
 async function handleClickDeleteBtn() {
   try {
     removeNodes(node.id)
+    
     toast({
       title: 'Deleting conversation history...',
       description: 'The conversation block has been removed.'
     })
     
+    const flowKey = 'vue-flow-data'
+    const flowData = localStorage.getItem(flowKey)
+    
+    if (flowData) {
+      const data = JSON.parse(flowData)
+      data.nodes = data.nodes.filter((n: any) => n.id !== node.id)
+      localStorage.setItem(flowKey, JSON.stringify(data))
+    }
+    
     const response = await axios.post(Block_Action_API, {
       action_type: 'delete',
       workspace_id: workspace_id.value,
       block_id: block_id.value,
-      block_type: 'conversation' 
+      block_type: 'conversation'
     })
     
     if (response.status === 200) {
@@ -243,7 +253,7 @@ function handleSelectStart(event: Event) {
 const isInMessageArea = ref(false)
 
 function scrollToBottom() {
-  const messageArea = document.querySelector(`#${node.id} .message-display-area`)
+  const messageArea = document.querySelector(`#${CSS.escape(node.id)} .message-display-area`)
   if (messageArea) {
     messageArea.scrollTop = messageArea.scrollHeight
   }
@@ -276,7 +286,6 @@ const handleExitFullscreen = () => {
   isFullscreen.value = false;
 };
 
-// 添加计算连接节点的逻辑
 const connectedNodes = computed(() => {
   return edges.value
     .filter(edge => edge.source === node.id || edge.target === node.id)
@@ -290,20 +299,43 @@ const connectedNodes = computed(() => {
     })
 })
 
-// 格式化显示文本
 const connectedNodesText = computed(() => {
   return connectedNodes.value
     .map(node => node.title)
     .join(', ')
 })
 
-// 添加气泡行数的计算
 const bubbleRows = computed(() => {
   if (!connectedNodes.value.length) return 0;
-  // 假设每个气泡宽度平均200px，加上间距6px，在600px宽度的容器中计算行数
   const bubblesPerRow = Math.floor(600 / (200 + 6));
   return Math.ceil(connectedNodes.value.length / bubblesPerRow);
 });
+
+const saveToLocalStorage = () => {
+  const flowKey = 'vue-flow-data'
+  const flowData = localStorage.getItem(flowKey)
+  
+  if (flowData) {
+    const data = JSON.parse(flowData)
+    const nodeIndex = data.nodes.findIndex((n: any) => n.id === node.id)
+    if (nodeIndex !== -1) {
+      data.nodes[nodeIndex].data = {
+        ...data.nodes[nodeIndex].data,
+        title: title.value
+      }
+      localStorage.setItem(flowKey, JSON.stringify(data))
+    }
+  }
+}
+
+const handleTitleChange = () => {
+  isEditTitle.value = false
+  if (props.data) {
+    props.data.title = title.value
+  }
+  saveToLocalStorage()
+  emit('updateNodeInternals')
+}
 </script>
 
 <template>
@@ -332,7 +364,13 @@ const bubbleRows = computed(() => {
         <div class="flex gap-x-2">
           <img src="~@/assets/images/icon_LLM.png" class="mt-1 h-4 w-4" alt="LLM icon" />
           <div class="flex flex-col gap-y-1">
-            <Input v-model="title" class="h-5" v-if="isEditTitle" @blur="() => (isEditTitle = false)" />
+            <Input 
+              v-model="title" 
+              class="h-5" 
+              v-if="isEditTitle" 
+              @blur="handleTitleChange"
+              @keyup.enter="handleTitleChange"
+            />
             <h3 class="text-base" v-else>{{ title }}</h3>
             <p class="text-sm text-gray-500">LLM</p>
           </div>
