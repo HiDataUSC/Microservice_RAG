@@ -24,9 +24,8 @@ const userMessage = ref('')
 
 const props = defineProps<NodeProps<LLMNodeData, LLMNodeEvents>>()
 
-const title = ref(props.data.title)
-
-const isEditTitle = ref(false)
+const title = ref(props.data?.title || 'New Conversation')
+const isEditingTitle = ref(false)
 
 const node = useNode()
 const { removeNodes, nodes, addNodes, edges, nodesDraggable } = useVueFlow()
@@ -215,6 +214,12 @@ function handleKeyPress(event: KeyboardEvent) {
 nodesDraggable.value = false
 
 function handleDragStart(event: MouseEvent) {
+  const titleInput = (event.target as HTMLElement).closest('.title-input-area')
+  if (titleInput) {
+    event.stopPropagation()
+    return
+  }
+
   const messageArea = (event.target as HTMLElement).closest('.message-display-area')
   if (messageArea) {
     event.stopPropagation()
@@ -223,7 +228,7 @@ function handleDragStart(event: MouseEvent) {
   }
   
   const dragHandle = (event.target as HTMLElement).closest('.drag-handle')
-  if (dragHandle) {
+  if (dragHandle && !isEditingTitle.value) {
     nodesDraggable.value = true
     return
   }
@@ -329,7 +334,7 @@ const saveToLocalStorage = () => {
 }
 
 const handleTitleChange = () => {
-  isEditTitle.value = false
+  isEditingTitle.value = false
   if (props.data) {
     props.data.title = title.value
   }
@@ -346,6 +351,35 @@ const handleSomeAction = async () => {
 const handleBlockAction = async () => {
   const response = await fetch(window.API_CONFIG.BLOCK_ACTION, {
     // ... 其他配置
+  })
+}
+
+const saveTitle = () => {
+  isEditingTitle.value = false
+  if (props.data) {
+    props.data.title = title.value
+  }
+  saveToLocalStorage()
+}
+
+const handleTitleKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    saveTitle()
+  } else if (event.key === 'Escape') {
+    isEditingTitle.value = false
+    title.value = props.data?.title || 'New Conversation'
+  }
+}
+
+const handleTitleClick = () => {
+  isEditingTitle.value = true
+  nextTick(() => {
+    const input = document.querySelector(`#title-input-${node.id}`) as HTMLInputElement
+    if (input) {
+      input.focus()
+      input.select()
+    }
   })
 }
 </script>
@@ -376,15 +410,27 @@ const handleBlockAction = async () => {
         <div class="flex gap-x-2">
           <img src="~@/assets/images/icon_LLM.png" class="mt-1 h-4 w-4" alt="LLM icon" />
           <div class="flex flex-col gap-y-1">
-            <Input 
-              v-model="title" 
-              class="h-5" 
-              v-if="isEditTitle" 
-              @blur="handleTitleChange"
-              @keyup.enter="handleTitleChange"
-            />
-            <h3 class="text-base" v-else>{{ title }}</h3>
-            <p class="text-sm text-gray-500">LLM</p>
+            <div class="relative title-input-area">
+              <h3 
+                v-if="!isEditingTitle" 
+                class="text-base cursor-pointer hover:bg-gray-100 px-1 rounded"
+                @click="handleTitleClick"
+              >
+                {{ title }}
+              </h3>
+              <input
+                v-else
+                :id="`title-input-${node.id}`"
+                v-model="title"
+                class="text-base px-1 rounded border border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                @blur="saveTitle"
+                @keydown="handleTitleKeydown"
+                @click.stop
+                @mousedown.stop
+                @dragstart.prevent
+              />
+            </div>
+            <p class="text-sm text-gray-500">Chat with AI</p>
           </div>
         </div>
 
@@ -401,14 +447,14 @@ const handleBlockAction = async () => {
               <menubar-content>
                 <menubar-item @click="handleClickDuplicateBtn"> Duplicated </menubar-item>
                 <menubar-item @click="handleClickDeleteBtn"> Delete </menubar-item>
-                <menubar-item @click="isEditTitle = true"> Rename </menubar-item>
+                <menubar-item @click="isEditingTitle = true"> Rename </menubar-item>
               </menubar-content>
             </menubar-menu>
           </Menubar>
         </div>
       </div>
 
-      <span class="text-sm text-gray-500">Chat with AI</span>
+      <span class="text-sm text-gray-500">Model: GPT-3.5 Turbo</span>
     </div>
 
     <div class="flex flex-col gap-y-4">
@@ -487,5 +533,17 @@ const handleBlockAction = async () => {
 
 <style scoped>
 @import './css/conversation-node.css';
+
+.drag-handle input {
+  background: transparent;
+  width: 100%;
+  min-width: 100px;
+}
+
+.drag-handle h3 {
+  min-height: 24px;
+  line-height: 24px;
+  transition: background-color 0.2s;
+}
 </style>
 
